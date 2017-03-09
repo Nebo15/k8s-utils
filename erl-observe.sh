@@ -48,7 +48,7 @@ OTP_PORT=${EPMD_OUTPUT[4]//[$'\t\r\n ']}
 echo " - Connecting on port ${OTP_PORT} with cookie '${ERL_COOKIE}'."
 
 # Kill epmd on local node to free 4369 port
-killall epmd
+killall epmd &> /dev/null || true
 
 # Replace it with remote nodes epmd and proxy remove erlang app port
 kubectl port-forward $POD_NAME $K8S_NAMESPACE 4369 $OTP_PORT &> /dev/null &
