@@ -51,10 +51,12 @@ echo " - Connecting on port ${OTP_PORT} with cookie '${ERL_COOKIE}'."
 killall epmd &> /dev/null || true
 
 # Replace it with remote nodes epmd and proxy remove erlang app port
+echo " - Running: kubectl port-forward $POD_NAME $K8S_NAMESPACE 4369 $OTP_PORT &> /dev/null &"
 kubectl port-forward $POD_NAME $K8S_NAMESPACE 4369 $OTP_PORT &> /dev/null &
 
 # Give some time for tunnel to be established
 sleep 1
 
 # Run observer in hidden mode to avoid hurting cluster's health
+echo " - Running: erl -start_epmd false -name debug@127.0.0.1 -setcookie $ERL_COOKIE -hidden -run observer"
 erl -start_epmd false -name debug@127.0.0.1 -setcookie $ERL_COOKIE -hidden -run observer
