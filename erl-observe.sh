@@ -39,7 +39,8 @@ eval 'EPMD_OUTPUT=($EPMD_OUTPUT)'
 
 # By default, cookie is the same as node name
 if [ ! $ERL_COOKIE ]; then
-  ERL_COOKIE=${EPMD_OUTPUT[1]}
+  echo " - Resolving Erlang cookie from pod '${POD_NAME}' environment variables."
+  ERL_COOKIE=$(kubectl get pod ${POD_NAME} ${K8S_NAMESPACE} -o jsonpath='{$.spec.containers[0].env[?(@.name=="ERLANG_COOKIE")].value}')
 fi
 
 # Strip newlines from last element of output
