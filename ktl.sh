@@ -28,6 +28,8 @@ elif [[ "$1" == "connect" ]]; then
 elif [[ "$1" == "observe" ]]; then
   OPT=${@#observe}
   /www/k8s/bin/erl-observe.sh ${OPT}
+elif [[ "$1" == "apply" ]]; then
+  kubectl $@ --record=true
 else
   kubectl $@
 fi;

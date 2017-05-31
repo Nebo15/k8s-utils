@@ -3,6 +3,13 @@
 # Example: ./bin/pg-connect.sh -n mp -l app=postgres
 set -e
 
+# Trap exit so we can try to kill proxies that has stuck in background
+function cleanup {
+  echo " - Stopping kubectl port forwarding."
+  kill $! &> /dev/null
+}
+trap cleanup EXIT
+
 K8S_SELECTOR="app=postgres"
 
 # Read configuration from CLI
