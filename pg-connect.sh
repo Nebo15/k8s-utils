@@ -57,7 +57,7 @@ else
 
   sleep 1
 
-  echo " - Open PG CLI: open postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5433/${POSTGRES_DB}"
+  echo " - Open PG CLI: open postgres://${POSTGRES_USER}:****@localhost:5433/${POSTGRES_DB}"
   open "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5433/${POSTGRES_DB}"
 
   echo " - Returning control over port-forward"

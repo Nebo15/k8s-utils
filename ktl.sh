@@ -30,6 +30,12 @@ elif [[ "$1" == "observe" ]]; then
   /www/k8s/bin/erl-observe.sh ${OPT}
 elif [[ "$1" == "apply" ]]; then
   kubectl $@ --record=true
+elif [[ "$1" == "backup" ]]; then
+  OPT=${@#backup}
+  /www/k8s/bin/pg-backup.sh ${OPT} -d
+elif [[ "$1" == "restore" ]]; then
+  OPT=${@#restore}
+  /www/k8s/bin/pg-backup.sh ${OPT} -r
 else
   kubectl $@
 fi;

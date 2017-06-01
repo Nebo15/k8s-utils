@@ -17,11 +17,12 @@ TABLES=""
 # Read configuration from CLI
 while getopts "n:l:t:dr" opt; do
   case "$opt" in
-    n)  K8S_NAMESPACE="${OPTARG}"
+    n)  K8S_NAMESPACE="-n${OPTARG}"
         ;;
     l)  K8S_SELECTOR=${OPTARG}
         ;;
-    t)  TABLES="--table=${OPTARG}"
+    t)  TABLES=${OPTARG}
+        TABLES="--table=${TABLES//,/ --table=}"
         ;;
     d)  DUMP="true"
         ;;
@@ -39,21 +40,32 @@ elif [[ ! $DUMP && ! $RESTORE ]]; then
 fi;
 
 echo " - Connecting to a DB"
-ktl connect -n${K8S_NAMESPACE} -l${K8S_SELECTOR} &> /dev/null &
+POD_NAME=$(kubectl get pods -l ${K8S_SELECTOR} ${K8S_NAMESPACE} -o template --template="{{range.items}}{{.metadata.name}}{{end}}")
 
-sleep 5
+kubectl ${K8S_NAMESPACE} port-forward ${POD_NAME} 5433:5432 &
 
-echo " - Dump will be stored in ./dumps/${K8S_NAMESPACE}"
-mkdir -p "./dumps/${K8S_NAMESPACE}"
+sleep 1
+
+echo " - Resolving DB user."
+POSTGRES_USER=$(kubectl get pod ${POD_NAME} ${K8S_NAMESPACE} -o jsonpath='{$.spec.containers[0].env[?(@.name=="POSTGRES_USER")].value}')
+echo " - Resolving DB password."
+POSTGRES_PASSWORD=$(kubectl get pod ${POD_NAME} ${K8S_NAMESPACE} -o jsonpath='{$.spec.containers[0].env[?(@.name=="POSTGRES_PASSWORD")].value}')
+echo " - Resolving DB name."
+POSTGRES_DB=$(kubectl get pod ${POD_NAME} ${K8S_NAMESPACE} -o jsonpath='{$.spec.containers[0].env[?(@.name=="POSTGRES_DB")].value}')
+
+export PGPASSWORD="$POSTGRES_PASSWORD"
+
+echo " - Dump will be stored in ./dumps/${POSTGRES_DB}"
+mkdir -p "./dumps/${POSTGRES_DB}"
 
 if [[ "${DUMP}" == "true" ]]; then
-  echo " - Dumping DB to ./dumps/${K8S_NAMESPACE}"
+  echo " - Dumping DB to ./dumps/${POSTGRES_DB}"
 
-  pg_dump ${K8S_NAMESPACE} -h localhost -p 5433 -U postgres --data-only --format directory --file dumps/${K8S_NAMESPACE} ${TABLES}
+  pg_dump ${POSTGRES_DB} -h localhost -p 5433 -U ${POSTGRES_USER} --data-only --format directory --file dumps/${POSTGRES_DB} ${TABLES}
 elif [[ "${RESTORE}" == "true" ]]; then
-  echo " - Restoring DB from ./dumps/${K8S_NAMESPACE}"
+  echo " - Restoring DB from ./dumps/${POSTGRES_DB}"
 
-  pg_restore dumps/${K8S_NAMESPACE} -h localhost -p 5433 -U postgres --data-only --format directory ${TABLES}
+  pg_restore dumps/${POSTGRES_DB} -h localhost -p 5433 -U ${POSTGRES_USER}  -d ${POSTGRES_DB} --data-only --format directory ${TABLES}
 fi;
 
 echo " - Returning control over port-forward"
