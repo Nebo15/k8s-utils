@@ -36,7 +36,9 @@ elif [[ "$1" == "backup" ]]; then
 elif [[ "$1" == "restore" ]]; then
   OPT=${@#restore}
   /www/k8s/bin/pg-backup.sh ${OPT} -r
+elif [[ "$1" == "status" ]]; then
+  OPT=${@#status}
+  /www/k8s/bin/status.sh ${OPT}
 else
   kubectl $@
 fi;
-
