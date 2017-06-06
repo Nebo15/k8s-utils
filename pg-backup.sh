@@ -65,7 +65,7 @@ if [[ "${DUMP}" == "true" ]]; then
 elif [[ "${RESTORE}" == "true" ]]; then
   echo " - Restoring DB from ./dumps/${POSTGRES_DB}"
 
-  pg_restore dumps/${POSTGRES_DB} -h localhost -p 5433 -U ${POSTGRES_USER}  -d ${POSTGRES_DB} --data-only --format directory ${TABLES}
+  pg_restore dumps/${POSTGRES_DB} -h localhost -p 5433 -U ${POSTGRES_USER} -d ${POSTGRES_DB} --data-only --format directory ${TABLES}
 fi;
 
 echo " - Returning control over port-forward"

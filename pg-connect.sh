@@ -7,7 +7,7 @@ K8S_SELECTOR="app=postgresql"
 RUN_PSQL="false"
 
 # Read configuration from CLI
-while getopts "n:l:qc:" opt; do
+while getopts "n:l:q" opt; do
   case "$opt" in
     n)  K8S_NAMESPACE="--namespace=${OPTARG}"
         ;;

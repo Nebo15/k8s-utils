@@ -1,24 +1,20 @@
 # k8s-utils
 Kubernetes utils for debugging our development or production environments
 
-## erl-observe.sh
-This script provides easy way to debug remote Erlang (or Elixir) nodes that is running in a Kubernetes cluster.
+## ktl
 
-Application on remote node should include `:runtime_tools` in it's applications dependencies, otherwise
-you will receive `rpc:handle_call` error.
+This command is a alias to the `kubectl` utility with custom subcommands:
+  - `ktl shell -n{namespace} -l{selector}` - connect to a POD in a shell (/bin/sh) mode.
+  - `ktl connect -n{namespace} [-l{selector}]` - port-forward PostgreSQL port and connect to it via GUI tool. Default label: `app=postgresql`.
+  - `ktl connect -q -n{namespace} [-l{selector}]` - connect to a POD and enter `psql` shell. Default label: `app=postgresql`.
+  - `ktl observer -n{namespace} -l{selector}` - debug remote Erlang VM in runtime via observer utility.
+  - `ktl status` - Print information about cluster services and their latest versions on Docker Hub.
+  - `ktl backup -n{namespace} [-l{selector} -t{table_names}` - Dump PostgreSQL database. Default label: `app=postgresql`. Specify table names to dump only certain tables.
+  - `ktl restore -n{namespace} [-l{selector} -t{table_names}` - Restore PostgreSQL database from dump. Default label: `app=postgresql`. Specify table names to restore only certain tables.
 
-  **Example usage:**
-  
-  ```
-  ./bin/erl-observe.sh -l app=matcher -n mp
-  ```
+## Installation
 
-## pg-connect.sh
-Port forward 5433 port to remote PostgreSQL database's 5432 port. Allows to query and debug it's state.
+On macOS:
+`ln -s {path_to_this repo}/ktl.sh /usr/local/bin/ktl`
 
-
-  **Example usage:**
-  
-  ```
-  ./bin/pg-connect.sh -n mp -l app=postgres
-  ```
+On other OSes use other place for your symlink.
