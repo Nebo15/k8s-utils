@@ -20,7 +20,7 @@ echo "Loading cluster status (this may take a while).."
 
 # "Application\tContainer\tDeployed version\tPod Name\n"$1}'
 get_cluser_versions | \
-  jq -r '.[] | "\(.app)\t\(.container)\t\(.version)\t\(.pod_name)"' | \
+  jq -r '.[] | "\(.ns)/\(.app)\t\(.container)\t\(.version)\t\(.pod_name)"' | \
   while read key
   do
     REPO_SLUG=$(echo ${key} | awk '{print $2}')

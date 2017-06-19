@@ -13,9 +13,11 @@ trap cleanup EXIT
 K8S_SELECTOR="app=postgresql"
 K8S_NAMESPACE=""
 TABLES=""
+EXCLUDE_TABLES=""
+KEEP_ALIVE="true"
 
 # Read configuration from CLI
-while getopts "n:l:t:dr" opt; do
+while getopts "n:l:t:e:drk" opt; do
   case "$opt" in
     n)  K8S_NAMESPACE="-n${OPTARG}"
         ;;
@@ -24,9 +26,14 @@ while getopts "n:l:t:dr" opt; do
     t)  TABLES=${OPTARG}
         TABLES="--table=${TABLES//,/ --table=}"
         ;;
+    e)  EXCLUDE_TABLES=${OPTARG}
+        EXCLUDE_TABLES="--exclude-table=${EXCLUDE_TABLES//,/ --exclude-table=}"
+        ;;
     d)  DUMP="true"
         ;;
     r)  RESTORE="true"
+        ;;
+    k)  KEEP_ALIVE="false"
         ;;
   esac
 done
@@ -41,6 +48,11 @@ fi;
 
 echo " - Connecting to a DB"
 POD_NAME=$(kubectl get pods -l ${K8S_SELECTOR} ${K8S_NAMESPACE} -o template --template="{{range.items}}{{.metadata.name}}{{end}}")
+
+if [[ ! ${POD_NAME} ]]; then
+  echo "[ERROR] Pod wasn't found. Try to select it with -n (namespace) and -l options."
+  exit 1
+fi;
 
 kubectl ${K8S_NAMESPACE} port-forward ${POD_NAME} 5433:5432 &
 
@@ -61,12 +73,17 @@ mkdir -p "./dumps/${POSTGRES_DB}"
 if [[ "${DUMP}" == "true" ]]; then
   echo " - Dumping DB to ./dumps/${POSTGRES_DB}"
 
-  pg_dump ${POSTGRES_DB} -h localhost -p 5433 -U ${POSTGRES_USER} --data-only --format directory --file dumps/${POSTGRES_DB} ${TABLES}
+  pg_dump ${POSTGRES_DB} -h localhost -p 5433 -U ${POSTGRES_USER} --data-only --format directory --file dumps/${POSTGRES_DB} ${TABLES} ${EXCLUDE_TABLES}
 elif [[ "${RESTORE}" == "true" ]]; then
   echo " - Restoring DB from ./dumps/${POSTGRES_DB}"
 
-  pg_restore dumps/${POSTGRES_DB} -h localhost -p 5433 -U ${POSTGRES_USER} -d ${POSTGRES_DB} --data-only --format directory ${TABLES}
+  pg_restore dumps/${POSTGRES_DB} -h localhost -p 5433 -U ${POSTGRES_USER} -d ${POSTGRES_DB} --data-only --format directory ${TABLES} ${EXCLUDE_TABLES}
 fi;
 
 echo " - Returning control over port-forward"
-fg
+
+if [[ "${KEEP_ALIVE}" == "true" ]]; then
+  fg
+else
+  kill $! &> /dev/null
+fi;
