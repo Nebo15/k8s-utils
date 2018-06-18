@@ -9,32 +9,10 @@ command -v helm >/dev/null 2>&1 || { echo >&2 "helm is not installed. Aborting."
 
 CURRENT_DIR="$( cd "$( dirname $( readlink "${BASH_SOURCE[0]}") )" && pwd )"
 
-# KUBECTL_CONTEXT=$(echo `kubectl config current-context` | cut -d '_' -f 4)
-# GCLOUD_CONTEXT=$(gcloud config list --format 'value(core.project)' 2>/dev/null)
-# GIT_BRANCH=$(git branch | grep \* | cut -d ' ' -f2)
-#
-# function check_cluster_and_project_name()
-# {
-#   if [[ "${KUBECTL_CONTEXT}" != *"${GIT_BRANCH}"* && "$@" != *"config"*"context"* ]]; then
-#     read -p "Cluster name do not match git branch name! Are you sure? [Y/n] " -n 1 -r
-#     echo
-#     if ! [[ $REPLY =~ ^[Yy]$ ]]; then
-#       exit 1
-#     fi
-#   fi;
-# }
-#
-# check_cluster_and_project_name
 
 if [[ "$1" == "shell" ]]; then # WORKS
   OPT=${@#shell}
   ${CURRENT_DIR}/shell.sh ${OPT}
-elif [[ "$1" == "pg:psql" ]]; then
-  OPT=${@#pg:psql}
-  ${CURRENT_DIR}/pg-psql.sh ${OPT}
-elif [[ "$1" == "pg:proxy" ]]; then
-  OPT=${@#pg:proxy}
-  ${CURRENT_DIR}/pg-proxy.sh ${OPT}
 elif [[ "$1" == "erl:shell" ]]; then # WORKS
   OPT=${@#erl:shell}
   ${CURRENT_DIR}/erl-shell.sh ${OPT}
@@ -44,18 +22,27 @@ elif [[ "$1" == "iex:observer" ]]; then
 elif [[ "$1" == "iex:remsh" ]]; then
   OPT=${@#iex:remsh}
   ${CURRENT_DIR}/iex-remsh.sh ${OPT}
+elif [[ "$1" == "pg:psql" ]]; then # WORKS
+  OPT=${@#pg:psql}
+  ${CURRENT_DIR}/pg-psql.sh ${OPT}
+elif [[ "$1" == "pg:open" ]]; then # WORKS
+  OPT=${@#pg:open}
+  ${CURRENT_DIR}/pg-open.sh ${OPT}
+elif [[ "$1" == "pg:proxy" ]]; then # WORKS
+  OPT=${@#pg:proxy}
+  ${CURRENT_DIR}/pg-proxy.sh ${OPT}
 elif [[ "$1" == "pg:dump" ]]; then
-  OPT=${@#dump}
-  ${CURRENT_DIR}/pg-dump.sh ${OPT} -d
+  OPT=${@#pg:dump}
+  ${CURRENT_DIR}/pg-dump.sh ${OPT}
 elif [[ "$1" == "pg:restore" ]]; then
-  OPT=${@#restore}
-  ${CURRENT_DIR}/pg-backup.sh ${OPT} -r
-elif [[ "$1" == "status" ]]; then
+  OPT=${@#pg:restore}
+  ${CURRENT_DIR}/pg-restore.sh ${OPT}
+elif [[ "$1" == "status" ]]; then # WORKS
   OPT=${@#status}
   ${CURRENT_DIR}/status.sh ${OPT}
-elif [[ "$1" == "help" ]]; then
+elif [[ "$1" == "help" ]]; then # WORKS
   ${CURRENT_DIR}/help.sh
-elif [[ "$1" == "apply" ]]; then
+elif [[ "$1" == "apply" ]]; then # WORKS
   # We override default behaviour to store update history
   kubectl $@ --record=true
 else
