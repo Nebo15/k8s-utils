@@ -47,5 +47,5 @@ get_cluser_versions | \
     -v white="$(tput setaf 7)" \
     -v reset="$(tput sgr0)" \
     -v context=${KUBECTL_CONTEXT} \
-    'BEGIN {printf "Namespace|App|Image|On %s|Latest version|Staging values version|Production values version\n", context} {printf "%s|%s|%s|%s|%s|%s|%s\n", $1, $2, $3, $4, $5, $6, $7;}' | \
+    'BEGIN {printf "Namespace|App|Image|Vsn on %s|Latest vsn|Defined for staging|for production\n", context} {printf "%s|%s|%s|%s|%s|%s|%s\n", $1, $2, $3, $4, $5, $6, $7;}' | \
   column -t -s'|'
