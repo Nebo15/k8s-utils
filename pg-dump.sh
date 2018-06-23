@@ -25,7 +25,7 @@ function show_help {
 }
 
 K8S_SELECTOR="app=db"
-PORT="15432"
+PORT=$(awk 'BEGIN{srand();print int(rand()*(63000-2000))+2000 }')
 POSTGRES_DB="postgres"
 DUMP_PATH="./dumps"
 TABLES=""
@@ -100,20 +100,22 @@ echo " - Resolving database user and password from secret ${DB_CONNECTION_SECRET
 DB_SECRET=$(kubectl get secrets ${DB_CONNECTION_SECRET} -o json)
 POSTGRES_USER=$(echo "${DB_SECRET}" | jq -r '.data.username' | base64 -D)
 POSTGRES_PASSWORD=$(echo "${DB_SECRET}" | jq -r '.data.password' | base64 -D)
-export PGPASSWORD="$POSTGRES_PASSWORD"
 
 sleep 1
 
 echo " - Dump will be stored in ${DUMP_PATH}/${POSTGRES_DB}"
-mkdir -p "${DUMP_PATH}/${POSTGRES_DB}"
+mkdir -p "${DUMP_PATH}/"
 
 echo " - Dumping ${POSTGRES_DB} DB to ${DUMP_PATH}/${POSTGRES_DB}"
 set -x
+PGPASSWORD="$POSTGRES_PASSWORD" \
 pg_dump ${POSTGRES_DB} \
   -h localhost \
   -p ${PORT} \
   -U ${POSTGRES_USER} \
-  --format directory \
-  --file ${DUMP_PATH}/${POSTGRES_DB} ${TABLES} ${EXCLUDE_TABLES} #\
-  # --data-only
+  --format c \
+  --compress 0 \
+  --file ${DUMP_PATH}/${POSTGRES_DB} ${TABLES} ${EXCLUDE_TABLES} \
+  --verbose
+
 set +x

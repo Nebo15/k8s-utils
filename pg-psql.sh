@@ -10,8 +10,8 @@ function show_help {
   Options:
     -lSELECTOR          Selector for a pod that exposes PostgreSQL instance. Default: app=db.
     -nNAMESPACE         Namespace for a pod that exposes PostgreSQL instance. Default: default.
-    -pPORT              Local port for forwarding. Default: 5432.
-    -dpostgres          Database name to use.
+    -pPORT              Local port for forwarding. Default: random port.
+    -dpostgres          Database name to use. Default: postgres.
     -h                  Show help and exit.
 
   Examples:
@@ -22,7 +22,7 @@ function show_help {
 }
 
 K8S_SELECTOR="app=db"
-PORT="5432"
+PORT=$(awk 'BEGIN{srand();print int(rand()*(63000-2000))+2000 }')
 POSTGRES_DB="postgres"
 
 # Read configuration from CLI

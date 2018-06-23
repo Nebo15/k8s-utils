@@ -25,7 +25,7 @@ function show_help {
 }
 
 K8S_SELECTOR="app=db"
-PORT="15432"
+PORT=$(awk 'BEGIN{srand();print int(rand()*(63000-2000))+2000 }')
 POSTGRES_DB="postgres"
 DUMP_PATH="./dumps"
 TABLES=""
@@ -104,15 +104,15 @@ export PGPASSWORD="$POSTGRES_PASSWORD"
 
 sleep 1
 
-echo " - Dump will be stored in ${DUMP_PATH}/${POSTGRES_DB}"
-mkdir -p "${DUMP_PATH}/${POSTGRES_DB}"
-
-echo " - Restoring ${POSTGRES_DB} DB from ./dumps/${POSTGRES_DB}"
+echo " - Restoring remote ${POSTGRES_DB} DB from ./dumps/${POSTGRES_DB}"
 set -x
 pg_restore dumps/${POSTGRES_DB} \
   -h localhost \
   -p ${PORT} \
   -U ${POSTGRES_USER} \
   -d ${POSTGRES_DB} \
-  --format directory ${TABLES} ${EXCLUDE_TABLES}
+  --verbose \
+  --no-acl \
+  --no-owner \
+  --format c ${TABLES} ${EXCLUDE_TABLES}
 set +x
