@@ -3,7 +3,7 @@ set -em
 
 function show_help {
   echo "
-  ktl pg:dump [-lapp=db -ndefault -h -o -dpostgres]
+  ktl pg:dump [-lapp=db -ndefault -h -eschema_migrations -tapis,plugins -f dumps/ -dpostgres]
 
   Dumps PostgreSQL database to local directory in binary format.
 
