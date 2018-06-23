@@ -5,6 +5,9 @@ KUBECTL_HELP=$(kubectl help)
 KTL_HELP="\
 Basic Commands (ktl):
   shell          Connects to the shell of a random pod selected by label and namespace
+  pg:ps          View active queries with execution time
+  pg:kill        Kill a query.
+  pg:outliers    Show queries that have longest execution time in aggregate
   pg:psql        Run psql with a cluster database
   pg:open        Open local app binded to postgres:// protocol with a cluster database
   pg:proxy       Port-forward cluster database to connect on localhost
