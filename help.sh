@@ -13,7 +13,8 @@ Basic Commands (ktl):
   pg:proxy       Port-forward cluster database to connect on localhost
   pg:dump        Dumps PostgreSQL database to local directory in binary format
   pg:resotre     Restore PostgreSQL database from dump
-  erl:shell      Connect to a shell of running Erlang/OTP node (executes wihin the pod)
+  erl:shell      Connect to a Erlang shell of running Erlang/OTP node (executes wihin the pod)
+  iex:shell      Connect to a IEx shell of running Erlang/OTP node (executes wihin the pod)
   iex:remsh      Remote shell into a running Erlang/OTP node (via port-foward and iex --remsh)
   iex:observer   Connect to a running Erlang/OTP node an locally run observer
   status         Show version information for deployed containers

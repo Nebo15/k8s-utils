@@ -16,6 +16,9 @@ if [[ "$1" == "shell" ]]; then
 elif [[ "$1" == "erl:shell" ]]; then
   OPT=${@#erl:shell}
   ${CURRENT_DIR}/erl-shell.sh ${OPT}
+elif [[ "$1" == "iex:shell" ]]; then
+  OPT=${@#iex:shell}
+  ${CURRENT_DIR}/iex-shell.sh ${OPT}
 elif [[ "$1" == "iex:observer" ]]; then
   OPT=${@#iex:observer}
   ${CURRENT_DIR}/iex-observer.sh ${OPT}
