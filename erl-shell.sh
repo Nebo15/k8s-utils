@@ -23,7 +23,7 @@ function show_help {
 # Read configuration from CLI
 while getopts "n:l:c:h" opt; do
   case "$opt" in
-    n)  K8S_NAMESPACE="--namespace=${OPTARG}"
+    n)  K8S_NAMESPACE=${OPTARG}
         ;;
     l)  K8S_SELECTOR=${OPTARG}
         ;;
@@ -35,21 +35,33 @@ while getopts "n:l:c:h" opt; do
   esac
 done
 
+K8S_NAMESPACE=${K8S_NAMESPACE:-default}
+
 # Required part of config
 if [ ! $K8S_SELECTOR ]; then
   echo "[E] You need to specify Kubernetes selector with '-l' option."
   exit 1
 fi
 
-echo " - Selecting pod with '-l ${K8S_SELECTOR} -n ${K8S_NAMESPACE:-default}' selector."
+echo " - Selecting pod with '-l ${K8S_SELECTOR} --namespace=${K8S_NAMESPACE}' selector."
 POD_NAME=$(
-  kubectl get pods ${K8S_NAMESPACE} \
+  kubectl get pods --namespace=${K8S_NAMESPACE} \
     -l ${K8S_SELECTOR} \
     -o jsonpath='{.items[0].metadata.name}' \
     --field-selector=status.phase=Running
 )
 
+echo " - Resolving pod ip from pod '${POD_NAME}' environment variables."
+POD_IP=$(
+  kubectl get pod ${POD_NAME} \
+    --namespace=${K8S_NAMESPACE} \
+    -o jsonpath='{$.status.podIP}'
+)
+POD_DNS=$(echo $POD_IP | sed 's/\./-/g')."${K8S_NAMESPACE}.pod.cluster.local"
+
 echo " - Entering shell on remote Erlang/OTP node."
-kubectl exec ${POD_NAME} ${K8S_NAMESPACE} \
+set -x
+kubectl exec ${POD_NAME} --namespace=${K8S_NAMESPACE} \
   -it \
-  -- /bin/sh -c 'erl -name debug_cli_'$(whoami)'@127.0.0.1 -setcookie ${ERLANG_COOKIE} -hidden -remsh $(epmd -names | tail -n 1 | awk '"'"'{print $2}'"'"')@${POD_IP}'
+  -- /bin/sh -c 'erl -name debug_cli_'$(whoami)'@'${POD_DNS}' -setcookie ${ERLANG_COOKIE} -hidden -remsh $(epmd -names | tail -n 1 | awk '"'"'{print $2}'"'"')@'${POD_DNS}
+set +x
