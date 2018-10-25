@@ -97,6 +97,11 @@ trap cleanup EXIT
 echo " - Port forwarding remote PostgreSQL to localhost port ${PORT}."
 kubectl ${K8S_NAMESPACE} port-forward ${POD_NAME} ${PORT}:5432 &> /dev/null &
 
-sleep 2
+for i in `seq 1 30`; do
+  [[ "${i}" == "30" ]] && echo "Failed waiting for port forward" && exit 1
+  nc -z localhost ${PORT} && break
+  echo -n .
+  sleep 1
+done
 
 psql "${POSTGRES_CONNECTION_STRING}" --command "SELECT ${COMMAND}(${PID});"
