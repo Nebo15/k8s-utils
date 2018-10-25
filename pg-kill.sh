@@ -3,7 +3,7 @@ set -em
 
 function show_help {
   echo "
-  ktl pg:psql -p3443 -dpostgres [-lapp=db -ndefault -h -f]
+  ktl pg:kill -p3443 -dpostgres [-lapp=db -ndefault -h -f]
 
   Kill a query by pid.
 
@@ -14,12 +14,9 @@ function show_help {
     -pPID               Query PID.
     -f                  Force kill.
     -h                  Show help and exit.
-    -v                  Verbose output, includes idle transactions.
 
   Examples:
-    ktl pg:psql
-    ktl pg:psql -lapp=readonly-db
-    ktl pg:psql -lapp=readonly-db -p5433
+    ktl pg:kill -dtalk -p5433
 "
 }
 

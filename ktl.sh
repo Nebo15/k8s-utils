@@ -9,7 +9,6 @@ command -v helm >/dev/null 2>&1 || { echo >&2 "helm is not installed. Aborting."
 
 CURRENT_DIR="$( cd "$( dirname $( readlink "${BASH_SOURCE[0]}") )" && pwd )"
 
-
 if [[ "$1" == "shell" ]]; then
   OPT=${@#shell}
   ${CURRENT_DIR}/shell.sh ${OPT}
@@ -43,6 +42,9 @@ elif [[ "$1" == "pg:kill" ]]; then
 elif [[ "$1" == "pg:outliers" ]]; then
   OPT=${@#pg:outliers}
   ${CURRENT_DIR}/pg-outliers.sh ${OPT}
+elif [[ "$1" == "pg:diagnose" ]]; then
+  OPT=${@#pg:diagnose}
+  ${CURRENT_DIR}/pg-diagnose.sh ${OPT}
 elif [[ "$1" == "pg:dump" ]]; then
   OPT=${@#pg:dump}
   ${CURRENT_DIR}/pg-dump.sh ${OPT}

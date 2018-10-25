@@ -3,9 +3,9 @@ set -em
 
 function show_help {
   echo "
-  ktl pg:dump [-lapp=db -ndefault -h -eschema_migrations -tapis,plugins -f dumps/ -dpostgres]
+  ktl pg:restore [-lapp=db -ndefault -h -eschema_migrations -tapis,plugins -f dumps/ -dpostgres]
 
-  Dumps PostgreSQL database to local directory in binary format.
+  Restores PostgreSQL database from a local directory (in binary format).
 
   Options:
     -lSELECTOR          Selector for a pod that exposes PostgreSQL instance. Default: app=db.
@@ -13,14 +13,14 @@ function show_help {
     -dpostgres          Database name when -o flag is set.
     -t                  List of tables to export. By default all tables are exported. Comma delimited.
     -e                  List of tables to exclude from export. Comma delimited. By default no tables are ignored.
-    -f                  Path to directory where dump would be stored. By default: ./dumps
+    -f                  Path to directory where dumps are stored. By default: ./dumps
     -h                  Show help and exit.
 
   Examples:
-    ktl pg:dump
-    ktl pg:dump -lapp=readonly-db
-    ktl pg:dump -lapp=readonly-db -eschema_migrations
-    ktl pg:dump -lapp=readonly-db -tapis,plugins,requests
+    ktl pg:restore
+    ktl pg:restore -lapp=readonly-db
+    ktl pg:restore -lapp=readonly-db -eschema_migrations
+    ktl pg:restore -lapp=readonly-db -tapis,plugins,requests
 "
 }
 

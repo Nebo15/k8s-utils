@@ -3,7 +3,7 @@ set -em
 
 function show_help {
   echo "
-  ktl pg:psql [-lapp=db -ndefault -h -dpostgres -v]
+  ktl pg:ps [-lapp=db -ndefault -h -dpostgres -v]
 
   View active queries with execution time.
 
@@ -15,9 +15,8 @@ function show_help {
     -v                  Verbose output, includes idle transactions.
 
   Examples:
-    ktl pg:psql
-    ktl pg:psql -lapp=readonly-db
-    ktl pg:psql -lapp=readonly-db -p5433
+    ktl pg:ps
+    ktl pg:ps -lapp=readonly-db
 "
 }
 
@@ -109,6 +108,7 @@ else
   WAITING="wait_event IS NOT NULL AS waiting"
 fi
 
+echo "Active queries: "
 psql "${POSTGRES_CONNECTION_STRING}" --command "
   SELECT
     pid,
@@ -124,4 +124,22 @@ psql "${POSTGRES_CONNECTION_STRING}" --command "
         ${VERBOSE}
         AND pid <> pg_backend_pid()
   ORDER BY query_start DESC
+"
+
+echo "Queries with active locks: "
+psql "${POSTGRES_CONNECTION_STRING}" --command "
+  SELECT
+    pg_stat_activity.pid,
+    pg_class.relname,
+    pg_locks.transactionid,
+    pg_locks.granted,
+    CASE WHEN length(pg_stat_activity.query) <= 40 THEN pg_stat_activity.query ELSE substr(pg_stat_activity.query, 0, 39) || '…' END AS query_snippet,
+    age(now(),pg_stat_activity.query_start) AS lock_age
+  FROM pg_stat_activity,pg_locks left
+  OUTER JOIN pg_class
+    ON (pg_locks.relation = pg_class.oid)
+  WHERE pg_stat_activity.query <> '<insufficient privilege>'
+    AND pg_locks.pid = pg_stat_activity.pid
+    AND pg_locks.mode = 'ExclusiveLock'
+    AND pg_stat_activity.pid <> pg_backend_pid() order by query_start;
 "

@@ -3,7 +3,7 @@ set -em
 
 function show_help {
   echo "
-  ktl pg:psql [-lapp=db -ndefault -h -r -t -n]
+  ktl pg:outliers [-lapp=db -ndefault -h -r -t -n]
 
   Show queries that have longest execution time in aggregate. Requires pg_stat_statements.
 
@@ -19,9 +19,8 @@ function show_help {
     -c10                Number of queries to display. Default: 10.
 
   Examples:
-    ktl pg:psql
-    ktl pg:psql -lapp=readonly-db
-    ktl pg:psql -lapp=readonly-db -p5433
+    ktl pg:outliers
+    ktl pg:outliers -lapp=readonly-db -r -c10 -t
 "
 }
 
