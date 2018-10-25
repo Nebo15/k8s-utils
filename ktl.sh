@@ -4,8 +4,6 @@ set -e
 # Check dependencies
 command -v jq >/dev/null 2>&1 || { echo >&2 "jq is not installed. Aborting."; exit 1; }
 command -v kubectl >/dev/null 2>&1 || { echo >&2 "kubectl is not installed. Aborting."; exit 1; }
-command -v gcloud >/dev/null 2>&1 || { echo >&2 "gcloud is not installed. Aborting."; exit 1; }
-command -v helm >/dev/null 2>&1 || { echo >&2 "helm is not installed. Aborting."; exit 1; }
 
 CURRENT_DIR="$( cd "$( dirname $( readlink "${BASH_SOURCE[0]}") )" && pwd )"
 
