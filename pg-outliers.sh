@@ -7,6 +7,9 @@ function show_help {
 
   Show queries that have longest execution time in aggregate. Requires pg_stat_statements.
 
+  If you get ERROR:  42P01: relation \"pg_stat_statements\" does not exist, then pg_stat_statements
+  extension is not enabled. To enable it run execute \"CREATE EXTENSION pg_stat_statements\".
+
   Options:
     -lSELECTOR          Selector for a pod that exposes PostgreSQL instance. Default: app=db.
     -nNAMESPACE         Namespace for a pod that exposes PostgreSQL instance. Default: default.
