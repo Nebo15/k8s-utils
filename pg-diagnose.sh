@@ -88,7 +88,7 @@ for i in `seq 1 30`; do
   sleep 1
 done
 
-psql "${POSTGRES_CONNECTION_STRING}" --command "
+psql "${POSTGRES_CONNECTION_STRING}" --no-psqlrc --command "
   WITH table_scans as (
       SELECT relid,
           tables.idx_scan + tables.seq_scan as all_scans,

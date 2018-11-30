@@ -94,7 +94,7 @@ done
 
 WAIT_RAND=$(awk 'BEGIN{srand();print int(rand()*(63000-2000))+2000 }')
 WAIT_RETURN=$(
-  psql "${POSTGRES_CONNECTION_STRING}" --command "SELECT '${WAIT_RAND}' || '${WAIT_RAND}' WHERE EXISTS (
+  psql "${POSTGRES_CONNECTION_STRING}" --no-psqlrc --command "SELECT '${WAIT_RAND}' || '${WAIT_RAND}' WHERE EXISTS (
     SELECT 1 FROM information_schema.columns WHERE table_schema = 'pg_catalog'
       AND table_name = 'pg_stat_activity'
       AND column_name = 'waiting'
@@ -109,7 +109,7 @@ else
 fi
 
 echo "Active queries: "
-psql "${POSTGRES_CONNECTION_STRING}" --command "
+psql "${POSTGRES_CONNECTION_STRING}" --no-psqlrc --command "
   SELECT
     pid,
     state,
@@ -127,7 +127,7 @@ psql "${POSTGRES_CONNECTION_STRING}" --command "
 "
 
 echo "Queries with active locks: "
-psql "${POSTGRES_CONNECTION_STRING}" --command "
+psql "${POSTGRES_CONNECTION_STRING}" --no-psqlrc --command "
   SELECT
     pg_stat_activity.pid,
     pg_class.relname,

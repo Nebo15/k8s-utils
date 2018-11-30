@@ -101,10 +101,10 @@ for i in `seq 1 30`; do
 done
 
 if [[ "${RESET}" == "true" ]]; then
-  psql "${POSTGRES_CONNECTION_STRING}" --command "SELECT pg_stat_statements_reset();"
+  psql "${POSTGRES_CONNECTION_STRING}" --no-psqlrc --command "SELECT pg_stat_statements_reset();"
 fi
 
-psql "${POSTGRES_CONNECTION_STRING}" --command "
+psql "${POSTGRES_CONNECTION_STRING}" --no-psqlrc --command "
   SELECT
     rolname AS rolname,
     interval '1 millisecond' * total_time AS total_exec_time,

@@ -101,4 +101,4 @@ for i in `seq 1 30`; do
   sleep 1
 done
 
-psql "${POSTGRES_CONNECTION_STRING}" --command "SELECT ${COMMAND}(${PID});"
+psql "${POSTGRES_CONNECTION_STRING}" --no-psqlrc --command "SELECT ${COMMAND}(${PID});"
