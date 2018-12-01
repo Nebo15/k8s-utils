@@ -71,8 +71,8 @@ echo " - Found pod ${POD_NAME}."
 DB_CONNECTION_SECRET=$(echo ${SELECTED_PODS} | jq -r '.items[0].metadata.labels.connectionSecret')
 echo " - Resolving database user and password from secret ${DB_CONNECTION_SECRET}."
 DB_SECRET=$(kubectl get secrets ${DB_CONNECTION_SECRET} -o json)
-POSTGRES_USER=$(echo "${DB_SECRET}" | jq -r '.data.username' | base64 -D)
-POSTGRES_PASSWORD=$(echo "${DB_SECRET}" | jq -r '.data.password' | base64 -D)
+POSTGRES_USER=$(echo "${DB_SECRET}" | jq -r '.data.username' | base64 --decode)
+POSTGRES_PASSWORD=$(echo "${DB_SECRET}" | jq -r '.data.password' | base64 --decode)
 POSTGRES_CONNECTION_STRING="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${PORT}/${POSTGRES_DB}"
 
 # Trap exit so we can try to kill proxies that has stuck in background
@@ -94,7 +94,7 @@ done
 
 WAIT_RAND=$(awk 'BEGIN{srand();print int(rand()*(63000-2000))+2000 }')
 WAIT_RETURN=$(
-  psql "${POSTGRES_CONNECTION_STRING}" --command "SELECT '${WAIT_RAND}' || '${WAIT_RAND}' WHERE EXISTS (
+  psql "${POSTGRES_CONNECTION_STRING}" --no-psqlrc --command "SELECT '${WAIT_RAND}' || '${WAIT_RAND}' WHERE EXISTS (
     SELECT 1 FROM information_schema.columns WHERE table_schema = 'pg_catalog'
       AND table_name = 'pg_stat_activity'
       AND column_name = 'waiting'
@@ -109,7 +109,7 @@ else
 fi
 
 echo "Active queries: "
-psql "${POSTGRES_CONNECTION_STRING}" --command "
+psql "${POSTGRES_CONNECTION_STRING}" --no-psqlrc --command "
   SELECT
     pid,
     state,
@@ -127,7 +127,7 @@ psql "${POSTGRES_CONNECTION_STRING}" --command "
 "
 
 echo "Queries with active locks: "
-psql "${POSTGRES_CONNECTION_STRING}" --command "
+psql "${POSTGRES_CONNECTION_STRING}" --no-psqlrc --command "
   SELECT
     pg_stat_activity.pid,
     pg_class.relname,

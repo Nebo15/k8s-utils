@@ -67,8 +67,8 @@ echo " - Found pod ${POD_NAME}."
 DB_CONNECTION_SECRET=$(echo ${SELECTED_PODS} | jq -r '.items[0].metadata.labels.connectionSecret')
 echo " - Resolving database user and password from secret ${DB_CONNECTION_SECRET}."
 DB_SECRET=$(kubectl get secrets ${DB_CONNECTION_SECRET} -o json)
-POSTGRES_USER=$(echo "${DB_SECRET}" | jq -r '.data.username' | base64 -D)
-POSTGRES_PASSWORD=$(echo "${DB_SECRET}" | jq -r '.data.password' | base64 -D)
+POSTGRES_USER=$(echo "${DB_SECRET}" | jq -r '.data.username' | base64 --decode)
+POSTGRES_PASSWORD=$(echo "${DB_SECRET}" | jq -r '.data.password' | base64 --decode)
 POSTGRES_CONNECTION_STRING="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${PORT}/${POSTGRES_DB}"
 
 # Trap exit so we can try to kill proxies that has stuck in background
@@ -88,7 +88,7 @@ for i in `seq 1 30`; do
   sleep 1
 done
 
-psql "${POSTGRES_CONNECTION_STRING}" --command "
+psql "${POSTGRES_CONNECTION_STRING}" --no-psqlrc --command "
   WITH table_scans as (
       SELECT relid,
           tables.idx_scan + tables.seq_scan as all_scans,

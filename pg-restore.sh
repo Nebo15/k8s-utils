@@ -98,8 +98,8 @@ kubectl ${K8S_NAMESPACE} port-forward ${POD_NAME} ${PORT}:5432 &> /dev/null &
 DB_CONNECTION_SECRET=$(echo ${SELECTED_PODS} | jq -r '.items[0].metadata.labels.connectionSecret')
 echo " - Resolving database user and password from secret ${DB_CONNECTION_SECRET}."
 DB_SECRET=$(kubectl get secrets ${DB_CONNECTION_SECRET} -o json)
-POSTGRES_USER=$(echo "${DB_SECRET}" | jq -r '.data.username' | base64 -D)
-POSTGRES_PASSWORD=$(echo "${DB_SECRET}" | jq -r '.data.password' | base64 -D)
+POSTGRES_USER=$(echo "${DB_SECRET}" | jq -r '.data.username' | base64 --decode)
+POSTGRES_PASSWORD=$(echo "${DB_SECRET}" | jq -r '.data.password' | base64 --decode)
 export PGPASSWORD="$POSTGRES_PASSWORD"
 
 sleep 1

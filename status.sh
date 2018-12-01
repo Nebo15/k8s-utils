@@ -2,7 +2,9 @@
 # This script backups all critical data, allowing to move it from one environment to another
 echo "Creating temporarely Docker Hub token to pull list of tags"
 DOCKER_REGISTRY="https://index.docker.io/v1/"
-DOCKER_CREDENTIALS=$(echo "${DOCKER_REGISTRY}" | docker-credential-osxkeychain get)
+if [ -z "${DOCKER_CREDENTIALS}" ]; then
+  DOCKER_CREDENTIALS=$(echo "${DOCKER_REGISTRY}" | docker-credential-osxkeychain get)
+fi
 DOCKER_USERNAME=$(echo "${DOCKER_CREDENTIALS}" | jq -r .Username)
 DOCKER_PASSWORD=$(echo "${DOCKER_CREDENTIALS}" | jq -r .Secret)
 PROJECT_ROOT_DIR=$(git rev-parse --show-toplevel)
