@@ -33,6 +33,13 @@ POD_NAME=$(
     --field-selector=status.phase=Running
 )
 
+APP_NAME=$(
+  kubectl get pods --namespace=${K8S_NAMESPACE} \
+    -l ${K8S_SELECTOR} \
+    -o jsonpath='{.items[0].metadata.labels.app}' \
+    --field-selector=status.phase=Running
+)
+
 # Trap exit so we can try to kill proxies that has stuck in background
 function cleanup {
   set +x
@@ -95,6 +102,9 @@ for i in `seq 1 30`; do
   echo -n .
   sleep 1
 done
+
+echo "- You can use following node name to manually connect to it in Observer: "
+echo "  ${APP_NAME}@${POD_DNS}"
 
 # Run observer in hidden mode to avoid hurting cluster's health
 WHOAMI=$(whoami)
