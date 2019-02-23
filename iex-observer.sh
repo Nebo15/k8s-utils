@@ -6,7 +6,7 @@
 set -eo pipefail
 
 # Read configuration from CLI
-while getopts "n:l:c:r" opt; do
+while getopts "n:l:p:c:r" opt; do
   case "$opt" in
     n)  K8S_NAMESPACE=${OPTARG}
         ;;
@@ -14,30 +14,32 @@ while getopts "n:l:c:r" opt; do
         ;;
     c)  ERL_COOKIE=${OPTARG}
         ;;
+    p)  POD_NAME=${OPTARG}
+        ;;
   esac
 done
 
 K8S_NAMESPACE=${K8S_NAMESPACE:-default}
 
 # Required part of config
-if [ ! $K8S_SELECTOR ]; then
-  echo "[E] You need to specify Kubernetes selector with '-l' option."
+if [[ ! $K8S_SELECTOR && ! $POD_NAME ]]; then
+  echo "[E] You need to specify Kubernetes selector with '-l' option or pod name via '-p' option."
   exit 1
 fi
 
-echo " - Selecting pod with '-l ${K8S_SELECTOR} --namespace=${K8S_NAMESPACE}' selector."
-POD_NAME=$(
-  kubectl get pods --namespace=${K8S_NAMESPACE} \
-    -l ${K8S_SELECTOR} \
-    -o jsonpath='{.items[0].metadata.name}' \
-    --field-selector=status.phase=Running
-)
+if [ ! $POD_NAME ]; then
+  echo " - Selecting pod with '-l ${K8S_SELECTOR} --namespace=${K8S_NAMESPACE}' selector."
+  POD_NAME=$(
+    kubectl get pods --namespace=${K8S_NAMESPACE} \
+      -l ${K8S_SELECTOR} \
+      -o jsonpath='{.items[0].metadata.name}' \
+      --field-selector=status.phase=Running
+  )
+fi
 
 APP_NAME=$(
-  kubectl get pods --namespace=${K8S_NAMESPACE} \
-    -l ${K8S_SELECTOR} \
-    -o jsonpath='{.items[0].metadata.labels.app}' \
-    --field-selector=status.phase=Running
+  kubectl get pod ${POD_NAME} --namespace=${K8S_NAMESPACE} \
+    -o jsonpath='{.metadata.labels.app}'
 )
 
 # Trap exit so we can try to kill proxies that has stuck in background
