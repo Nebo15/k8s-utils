@@ -5,6 +5,11 @@
 # you will receive `rpc:handle_call` error.
 set -eo pipefail
 
+K8S_NAMESPACE=
+POD_NAME=
+K8S_SELECTOR=
+ERL_COOKIE=
+
 # Read configuration from CLI
 while getopts "n:l:c:r" opt; do
   case "$opt" in

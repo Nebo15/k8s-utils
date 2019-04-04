@@ -17,6 +17,9 @@ function show_help {
 }
 
 K8S_NAMESPACE=""
+K8S_SELECTOR=
+COMMAND=
+POD_NAME=
 
 # Read configuration from CLI
 while getopts "n:l:p:h" opt; do

@@ -20,6 +20,11 @@ function show_help {
 "
 }
 
+K8S_NAMESPACE=
+POD_NAME=
+K8S_SELECTOR=
+ERL_COOKIE=
+
 # Read configuration from CLI
 while getopts "n:l:p:c:h" opt; do
   case "$opt" in
