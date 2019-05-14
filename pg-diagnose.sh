@@ -3,25 +3,31 @@ set -em
 
 function show_help {
   echo "
-  ktl pg:diagnose [-lapp=db -ndefault -h]
+  ktl -linstance_name=staging [-nkube-system -h]
 
   Shows diagnostics report for PostgreSQL database.
 
   Options:
-    -lSELECTOR          Selector for a pod that exposes PostgreSQL instance. Default: app=db.
-    -nNAMESPACE         Namespace for a pod that exposes PostgreSQL instance. Default: default.
+    -lSELECTOR          Selector for a pod that exposes PostgreSQL instance. Required.
+    -nNAMESPACE         Namespace for a pod that exposes PostgreSQL instance. Default: kube-system.
     -h                  Show help and exit.
 
   Examples:
-    ktl pg:diagnose
-    ktl pg:diagnose -lapp=db
-    ktl pg:diagnose -lapp=db -p5433
+    ktl pg:diagnose -linstance_name=staging
+    ktl pg:diagnose -linstance_name=staging -nkube-system
+
+  Available databases:
 "
+
+  ktl get pods -n kube-system -l proxy_to=google_cloud_sql --all-namespaces=true -o json \
+    | jq -r '.items[] | "\(.metadata.namespace)\t\(.metadata.name)\t\(.metadata.labels.instance_name)\tktl pg:diagnose -n \(.metadata.namespace) -l instance_name=\(.metadata.labels.instance_name)"' \
+    | awk -v FS="," 'BEGIN{print "    Namespace\tPod Name\tCloud SQL Instance_Name\tktl command";}{printf "    %s\t%s\t%s\t%s%s",$1,$2,$3,$4,ORS}' \
+    | column -ts $'\t'
 }
 
 # TODO: add more stats from https://github.com/heroku/heroku-pg-extras
 
-K8S_SELECTOR="app=db"
+K8S_NAMESPACE="--namespace=kube-system"
 PORT=$(awk 'BEGIN{srand();print int(rand()*(63000-2000))+2000 }')
 POSTGRES_DB="postgres"
 
@@ -40,6 +46,11 @@ while getopts "hn:l:p:rn:t" opt; do
   esac
 done
 
+if [[ "${K8S_SELECTOR}" == "" ]]; then
+  echo "[E] Pod selector is not set. Use -n (namespace) and -l options or -h to list available databases."
+  exit 1
+fi
+
 set +e
 nc -z localhost ${PORT} < /dev/null
 if [[ $? == "0" ]]; then
@@ -48,7 +59,7 @@ if [[ $? == "0" ]]; then
 fi
 set -e
 
-echo " - Selecting pod with '-l ${K8S_SELECTOR} -n ${K8S_NAMESPACE:-default}' selector."
+echo " - Selecting pod with '-l ${K8S_SELECTOR} ${K8S_NAMESPACE}' selector."
 SELECTED_PODS=$(
   kubectl get pods ${K8S_NAMESPACE} \
     -l ${K8S_SELECTOR} \
@@ -57,19 +68,28 @@ SELECTED_PODS=$(
 )
 POD_NAME=$(echo ${SELECTED_PODS} | jq -r '.items[0].metadata.name')
 
-if [ ! ${POD_NAME} ]; then
-  echo "[E] Pod wasn't found. Try to select it with -n (namespace) and -l options."
+if [[ "${POD_NAME}" == "null" ]]; then
+  echo "[E] Pod is not found. Try to select it with -n (namespace) and -l options. Use -h to list available databases."
   exit 1
 fi
 
 echo " - Found pod ${POD_NAME}."
 
-DB_CONNECTION_SECRET=$(echo ${SELECTED_PODS} | jq -r '.items[0].metadata.labels.connectionSecret')
-echo " - Resolving database user and password from secret ${DB_CONNECTION_SECRET}."
-DB_SECRET=$(kubectl get secrets ${DB_CONNECTION_SECRET} -o json)
-POSTGRES_USER=$(echo "${DB_SECRET}" | jq -r '.data.username' | base64 --decode)
-POSTGRES_PASSWORD=$(echo "${DB_SECRET}" | jq -r '.data.password' | base64 --decode)
-POSTGRES_CONNECTION_STRING="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${PORT}/${POSTGRES_DB}"
+DB_CONNECTION_SECRET=$(
+  kubectl get secrets --all-namespaces=true \
+    -l "service=google_cloud_sql,${K8S_SELECTOR}" \
+    -o json | jq -r '.items[0]'
+)
+
+if [[ "${DB_CONNECTION_SECRET}" == "null" ]]; then
+  echo "[E] Can not automatically resolve DB connection secret."
+  exit 1
+else
+  echo " - Automatically resolving connection url from connection secret in cluster."
+  POSTGRES_USER=$(echo "${DB_CONNECTION_SECRET}" | jq -r '.data.username' | base64 --decode)
+  POSTGRES_PASSWORD=$(echo "${DB_CONNECTION_SECRET}" | jq -r '.data.password' | base64 --decode)
+  POSTGRES_CONNECTION_STRING="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${PORT}/${POSTGRES_DB}"
+fi
 
 # Trap exit so we can try to kill proxies that has stuck in background
 function cleanup {

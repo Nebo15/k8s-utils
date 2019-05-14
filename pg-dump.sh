@@ -3,30 +3,35 @@ set -em
 
 function show_help {
   echo "
-  ktl pg:dump [-lapp=db -ndefault -h -o -dpostgres]
+  ktl pg:dump -linstance_name=staging -dtalkinto [-nkube-system -h -o]
 
   Dumps PostgreSQL database to local directory in binary format.
 
   Options:
-    -lSELECTOR          Selector for a pod that exposes PostgreSQL instance. Default: app=db.
-    -nNAMESPACE         Namespace for a pod that exposes PostgreSQL instance. Default: default.
-    -dpostgres          Database name when -o flag is set.
+    -lSELECTOR          Selector for a pod that exposes PostgreSQL instance. Required.
+    -nNAMESPACE         Namespace for a pod that exposes PostgreSQL instance. Default: kube-system.
+    -dpostgres          Database name. Required.
     -t                  List of tables to export. By default all tables are exported. Comma delimited.
     -e                  List of tables to exclude from export. Comma delimited. By default no tables are ignored.
     -f                  Path to directory where dump would be stored. By default: ./dumps
     -h                  Show help and exit.
 
   Examples:
-    ktl pg:dump
-    ktl pg:dump -lapp=readonly-db
-    ktl pg:dump -lapp=readonly-db -eschema_migrations
-    ktl pg:dump -lapp=readonly-db -tapis,plugins,requests
+    ktl pg:dump -linstance_name=staging -dtalkinto
+    ktl pg:dump -linstance_name=staging -dtalkinto -eschema_migrations
+    ktl pg:dump -linstance_name=staging -dtalkinto -tapis,plugins,requests
+
+  Available databases:
 "
+
+  ktl get pods -n kube-system -l proxy_to=google_cloud_sql --all-namespaces=true -o json \
+    | jq -r '.items[] | "\(.metadata.namespace)\t\(.metadata.name)\t\(.metadata.labels.instance_name)\tktl pg:dump -n \(.metadata.namespace) -l instance_name=\(.metadata.labels.instance_name) -d $DATABASE_NAME"' \
+    | awk -v FS="," 'BEGIN{print "    Namespace\tPod Name\tCloud SQL Instance_Name\tktl command";}{printf "    %s\t%s\t%s\t%s%s",$1,$2,$3,$4,ORS}' \
+    | column -ts $'\t'
 }
 
-K8S_SELECTOR="app=db"
+K8S_NAMESPACE="--namespace=kube-system"
 PORT=$(awk 'BEGIN{srand();print int(rand()*(63000-2000))+2000 }')
-POSTGRES_DB="postgres"
 DUMP_PATH="./dumps"
 TABLES=""
 EXCLUDE_TABLES=""
@@ -54,6 +59,16 @@ while getopts "hn:l:p:d:t:e:t:f:e:" opt; do
   esac
 done
 
+if [[ "${K8S_SELECTOR}" == "" ]]; then
+  echo "[E] Pod selector is not set. Use -n (namespace) and -l options or -h to list available databases."
+  exit 1
+fi
+
+if [[ "${POSTGRES_DB}" == "" ]]; then
+  echo "[E] Posgres database is not set, use -d option."
+  exit 1
+fi
+
 set +e
 nc -z localhost ${PORT} < /dev/null
 if [[ $? == "0" ]]; then
@@ -67,7 +82,7 @@ if [[ -e "${DUMP_PATH}/${POSTGRES_DB}" ]]; then
   exit 1
 fi
 
-echo " - Selecting pod with '-l ${K8S_SELECTOR} -n ${K8S_NAMESPACE:-default}' selector."
+echo " - Selecting pod with '-l ${K8S_SELECTOR} ${K8S_NAMESPACE}' selector."
 SELECTED_PODS=$(
   kubectl get pods ${K8S_NAMESPACE} \
     -l ${K8S_SELECTOR} \
@@ -76,12 +91,28 @@ SELECTED_PODS=$(
 )
 POD_NAME=$(echo ${SELECTED_PODS} | jq -r '.items[0].metadata.name')
 
-if [ ! ${POD_NAME} ]; then
-  echo "[Error] Pod wasn't found. Try to select it with -n (namespace) and -l options."
+if [[ "${POD_NAME}" == "null" ]]; then
+  echo "[E] Pod is not found. Try to select it with -n (namespace) and -l options. Use -h to list available databases."
   exit 1
 fi
 
 echo " - Found pod ${POD_NAME}."
+
+DB_CONNECTION_SECRET=$(
+  kubectl get secrets --all-namespaces=true \
+    -l "service=google_cloud_sql,${K8S_SELECTOR}" \
+    -o json | jq -r '.items[0]'
+)
+
+if [[ "${DB_CONNECTION_SECRET}" == "null" ]]; then
+  echo "[E] Can not automatically resolve DB connection secret."
+  exit 1
+else
+  echo " - Automatically resolving connection url from connection secret in cluster."
+  POSTGRES_USER=$(echo "${DB_CONNECTION_SECRET}" | jq -r '.data.username' | base64 --decode)
+  POSTGRES_PASSWORD=$(echo "${DB_CONNECTION_SECRET}" | jq -r '.data.password' | base64 --decode)
+  POSTGRES_CONNECTION_STRING="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${PORT}/${POSTGRES_DB}"
+fi
 
 # Trap exit so we can try to kill proxies that has stuck in background
 function cleanup {
@@ -95,13 +126,12 @@ trap cleanup EXIT
 echo " - Port forwarding remote PostgreSQL to localhost port ${PORT}."
 kubectl ${K8S_NAMESPACE} port-forward ${POD_NAME} ${PORT}:5432 &> /dev/null &
 
-DB_CONNECTION_SECRET=$(echo ${SELECTED_PODS} | jq -r '.items[0].metadata.labels.connectionSecret')
-echo " - Resolving database user and password from secret ${DB_CONNECTION_SECRET}."
-DB_SECRET=$(kubectl get secrets ${DB_CONNECTION_SECRET} -o json)
-POSTGRES_USER=$(echo "${DB_SECRET}" | jq -r '.data.username' | base64 --decode)
-POSTGRES_PASSWORD=$(echo "${DB_SECRET}" | jq -r '.data.password' | base64 --decode)
-
-sleep 1
+for i in `seq 1 30`; do
+  [[ "${i}" == "30" ]] && echo "Failed waiting for port forward" && exit 1
+  nc -z localhost ${PORT} && break
+  echo -n .
+  sleep 1
+done
 
 echo " - Dump will be stored in ${DUMP_PATH}/${POSTGRES_DB}"
 mkdir -p "${DUMP_PATH}/"
