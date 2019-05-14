@@ -3,7 +3,7 @@ set -em
 
 function show_help {
   echo "
-  ktl pg:outliers -linstance_name=staging [-nkube-system -h -r -t -n]
+  ktl pg:outliers -linstance_name=staging -dtalkinto [-nkube-system -h -r -t -n]
 
   Show queries that have longest execution time in aggregate. Requires pg_stat_statements.
 
@@ -13,39 +13,41 @@ function show_help {
   Options:
     -lSELECTOR          Selector for a pod that exposes PostgreSQL instance. Required.
     -nNAMESPACE         Namespace for a pod that exposes PostgreSQL instance. Default: kube-system.
+    -dpostgres          Database name to use. Required.
     -h                  Show help and exit.
     -t                  Do not truncate queries to 40 characters.
     -r                  Resets statistics gathered by pg_stat_statements.
     -c10                Number of queries to display. Default: 10.
 
   Examples:
-    ktl pg:outliers -linstance_name=staging
-    ktl pg:outliers -linstance_name=staging -r -c10 -t
+    ktl pg:outliers -linstance_name=staging -dtalkinto
+    ktl pg:outliers -linstance_name=staging -dtalkinto -r -c10 -t
 
   Available databases:
 "
 
   ktl get pods -n kube-system -l proxy_to=google_cloud_sql --all-namespaces=true -o json \
-    | jq -r '.items[] | "\(.metadata.namespace)\t\(.metadata.name)\t\(.metadata.labels.instance_name)\tktl pg:outliers -n \(.metadata.namespace) -l instance_name=\(.metadata.labels.instance_name)"' \
+    | jq -r '.items[] | "\(.metadata.namespace)\t\(.metadata.name)\t\(.metadata.labels.instance_name)\tktl pg:outliers -n \(.metadata.namespace) -l instance_name=\(.metadata.labels.instance_name) -d $DB_NAME"' \
     | awk -v FS="," 'BEGIN{print "    Namespace\tPod Name\tCloud SQL Instance_Name\tktl command";}{printf "    %s\t%s\t%s\t%s%s",$1,$2,$3,$4,ORS}' \
     | column -ts $'\t'
 }
 
 K8S_NAMESPACE="--namespace=kube-system"
 PORT=$(awk 'BEGIN{srand();print int(rand()*(63000-2000))+2000 }')
-POSTGRES_DB="postgres"
 RESET=""
 NUMBER=10
 TRUNCATE="CASE WHEN length(query) <= 40 THEN query ELSE substr(query, 0, 39) || '…' END"
 
 # Read configuration from CLI
-while getopts "hn:l:p:rn:t" opt; do
+while getopts "hn:l:p:rn:td:" opt; do
   case "$opt" in
     n)  K8S_NAMESPACE="--namespace=${OPTARG}"
         ;;
     l)  K8S_SELECTOR="${OPTARG}"
         ;;
     p)  PORT="${OPTARG}"
+        ;;
+    d)  POSTGRES_DB="${OPTARG}"
         ;;
     h)  show_help
         exit 0
@@ -61,6 +63,11 @@ done
 
 if [[ "${K8S_SELECTOR}" == "" ]]; then
   echo "[E] Pod selector is not set. Use -n (namespace) and -l options or -h to list available databases."
+  exit 1
+fi
+
+if [[ "${POSTGRES_DB}" == "" ]]; then
+  echo "[E] Posgres database is not set, use -d option."
   exit 1
 fi
 
