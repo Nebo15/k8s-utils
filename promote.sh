@@ -20,8 +20,6 @@ FROM="staging"
 TO="production"
 APPLICATION=""
 
-
-
 while getopts "hf:t:a:" opt; do
   case "$opt" in
     f)  FROM="${OPTARG}"
