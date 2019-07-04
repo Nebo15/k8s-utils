@@ -1,5 +1,7 @@
 #!/bin/bash
 # This script backups all critical data, allowing to move it from one environment to another
+set -e
+
 echo "Creating temporarely Docker Hub token to pull list of tags"
 DOCKER_REGISTRY="https://index.docker.io/v1/"
 if [ -z "${DOCKER_CREDENTIALS}" ]; then
@@ -25,7 +27,7 @@ function get_docker_hub_tags() {
 }
 
 function get_manifest_version() {
-  VALUES_PATH="${PROJECT_ROOT_DIR}/rel/deployment/charts/$1/values.$2.yaml"
+  VALUES_PATH="${PROJECT_ROOT_DIR}/rel/deployment/charts/applications/$1/values.$2.yaml"
   [[ -e "${VALUES_PATH}" ]] && cat "${VALUES_PATH}" | grep "imageTag" | awk '{print $NF;}' | sed 's/"//g' || echo "Unknown"
 }
 
@@ -49,5 +51,5 @@ get_cluser_versions | \
     -v white="$(tput setaf 7)" \
     -v reset="$(tput sgr0)" \
     -v context=${KUBECTL_CONTEXT} \
-    'BEGIN {printf "Namespace|App|Image|Vsn on %s|Latest vsn|Defined for staging|for production\n", context} {printf "%s|%s|%s|%s|%s|%s|%s\n", $1, $2, $3, $4, $5, $6, $7;}' | \
+    'BEGIN {printf "Namespace|App|Image|Latest|Deployed to %s|.staging.yaml|.production.yaml\n", context} {printf "%s|%s|%s|%s|%s|%s|%s\n", $1, $2, $3, $5, $4, $6, $7;}' | \
   column -t -s'|'

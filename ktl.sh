@@ -52,6 +52,9 @@ elif [[ "$1" == "pg:restore" ]]; then
 elif [[ "$1" == "status" ]]; then
   OPT=${@#status}
   ${CURRENT_DIR}/status.sh ${OPT}
+elif [[ "$1" == "promote" ]]; then
+  OPT=${@#promote}
+  ${CURRENT_DIR}/promote.sh ${OPT}
 elif [[ "$1" == "help" ]]; then
   ${CURRENT_DIR}/help.sh
 elif [[ "$1" == "apply" ]]; then

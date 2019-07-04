@@ -4,6 +4,7 @@ set -e
 KUBECTL_HELP=$(kubectl help)
 KTL_HELP="\
 Basic Commands (ktl):
+  promote        Promote staging image versions to production by updating values files
   shell          Connects to the shell of a random pod selected by label and namespace
   pg:ps          View active queries with execution time
   pg:kill        Kill a query.
