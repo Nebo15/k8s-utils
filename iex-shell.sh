@@ -28,7 +28,7 @@ ERL_COOKIE=
 # Read configuration from CLI
 while getopts "n:l:p:c:h" opt; do
   case "$opt" in
-    n)  K8S_NAMESPACE="--namespace=${OPTARG}"
+    n)  K8S_NAMESPACE=${OPTARG}
         ;;
     l)  K8S_SELECTOR=${OPTARG}
         ;;
@@ -53,12 +53,14 @@ if [ ! $POD_NAME ]; then
   POD_NAME=$(
     kubectl get pods --namespace=${K8S_NAMESPACE} \
       -l ${K8S_SELECTOR} \
-      -o jsonpath='{.items[0].metadata.name}' \
-      --field-selector=status.phase=Running
+      -o jsonpath='{range .items[*]}
+                   {@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}' \
+      | grep 'Ready=True' \
+      | awk -F: '{print $1}'
   )
 fi
 
 echo " - Entering shell on remote Erlang/OTP node."
-kubectl exec ${POD_NAME} ${K8S_NAMESPACE} \
+kubectl exec ${POD_NAME} --namespace=${K8S_NAMESPACE} \
   -it \
   -- /bin/sh -c 'bin/${APPLICATION_NAME} remote_console'
