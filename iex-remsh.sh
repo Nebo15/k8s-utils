@@ -47,13 +47,33 @@ function cleanup {
 }
 trap cleanup EXIT;
 
-# By default, cookie is the same as node name
 if [[ "${ERLANG_COOKIE}" == "" ]]; then
   echo " - Resolving Erlang cookie from pod '${POD_NAME}' environment variables."
   ERLANG_COOKIE=$(
     kubectl get pod ${POD_NAME} \
       --namespace=${K8S_NAMESPACE} \
       -o jsonpath='{$.spec.containers[0].env[?(@.name=="ERLANG_COOKIE")].value}'
+  )
+fi
+
+if [[ "${ERLANG_COOKIE}" == "" ]]; then
+  echo " - Resolving Erlang cookie from secret linked to pod '${POD_NAME}' variables."
+  ERLANG_COOKIE_SECRET_NAME=$(
+    kubectl get pod ${POD_NAME} \
+      --namespace=${K8S_NAMESPACE} \
+      -o jsonpath='{$.spec.containers[0].env[?(@.name=="ERLANG_COOKIE")].valueFrom.secretKeyRef.name}'
+  )
+
+  ERLANG_COOKIE_SECRET_KEY_NAME=$(
+    kubectl get pod ${POD_NAME} \
+      --namespace=${K8S_NAMESPACE} \
+      -o jsonpath='{$.spec.containers[0].env[?(@.name=="ERLANG_COOKIE")].valueFrom.secretKeyRef.key}'
+  )
+
+  ERLANG_COOKIE=$(
+    kubectl get secret ${ERLANG_COOKIE_SECRET_NAME} \
+      --namespace=${K8S_NAMESPACE} \
+      -o jsonpath='{$.data.'${ERLANG_COOKIE_SECRET_KEY_NAME}'}' | base64 --decode
   )
 fi
 

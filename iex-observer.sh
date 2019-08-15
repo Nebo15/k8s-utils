@@ -42,11 +42,6 @@ if [ ! $POD_NAME ]; then
   )
 fi
 
-APP_NAME=$(
-  kubectl get pod ${POD_NAME} --namespace=${K8S_NAMESPACE} \
-    -o jsonpath='{.metadata.labels.app}'
-)
-
 # Trap exit so we can try to kill proxies that has stuck in background
 function cleanup {
   set +x
@@ -56,13 +51,33 @@ function cleanup {
 }
 trap cleanup EXIT;
 
-# By default, cookie is the same as node name
 if [[ "${ERLANG_COOKIE}" == "" ]]; then
   echo " - Resolving Erlang cookie from pod '${POD_NAME}' environment variables."
   ERLANG_COOKIE=$(
     kubectl get pod ${POD_NAME} \
       --namespace=${K8S_NAMESPACE} \
       -o jsonpath='{$.spec.containers[0].env[?(@.name=="ERLANG_COOKIE")].value}'
+  )
+fi
+
+if [[ "${ERLANG_COOKIE}" == "" ]]; then
+  echo " - Resolving Erlang cookie from secret linked to pod '${POD_NAME}' variables."
+  ERLANG_COOKIE_SECRET_NAME=$(
+    kubectl get pod ${POD_NAME} \
+      --namespace=${K8S_NAMESPACE} \
+      -o jsonpath='{$.spec.containers[0].env[?(@.name=="ERLANG_COOKIE")].valueFrom.secretKeyRef.name}'
+  )
+
+  ERLANG_COOKIE_SECRET_KEY_NAME=$(
+    kubectl get pod ${POD_NAME} \
+      --namespace=${K8S_NAMESPACE} \
+      -o jsonpath='{$.spec.containers[0].env[?(@.name=="ERLANG_COOKIE")].valueFrom.secretKeyRef.key}'
+  )
+
+  ERLANG_COOKIE=$(
+    kubectl get secret ${ERLANG_COOKIE_SECRET_NAME} \
+      --namespace=${K8S_NAMESPACE} \
+      -o jsonpath='{$.data.'${ERLANG_COOKIE_SECRET_KEY_NAME}'}' | base64 --decode
   )
 fi
 
@@ -111,7 +126,7 @@ for i in `seq 1 30`; do
 done
 
 echo "- You can use following node name to manually connect to it in Observer: "
-echo "  ${APP_NAME}@${POD_DNS}"
+echo "  ${RELEASE_NAME}@${POD_DNS}"
 
 # Run observer in hidden mode to avoid hurting cluster's health
 WHOAMI=$(whoami)
