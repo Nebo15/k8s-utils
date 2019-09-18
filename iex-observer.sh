@@ -42,10 +42,20 @@ if [ ! $POD_NAME ]; then
   )
 fi
 
+# A basic wrapper for `sed` that works with both macOS and GNU versions
+OS=`uname`
+function delete_pattern_in_file {
+  if [ "${OS}" = "Darwin" ]; then
+    sudo sed -i '' "$1" "$2"
+  else
+    sudo sed -i "$1" "$2"
+  fi
+}
+
 # Trap exit so we can try to kill proxies that has stuck in background
 function cleanup {
   set +x
-  sudo sed -i '' "/${HOST_RECORD}/d" /etc/hosts
+  delete_pattern_in_file "/${HOST_RECORD}/d" /etc/hosts
   echo " - Stopping kubectl proxy."
   kill $! &> /dev/null
 }
