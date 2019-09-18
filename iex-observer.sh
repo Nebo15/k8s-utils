@@ -101,8 +101,6 @@ POD_DNS=$(echo $POD_IP | sed 's/\./-/g')."${K8S_NAMESPACE}.pod.cluster.local"
 HOST_RECORD="127.0.0.1 ${POD_DNS}"
 
 echo " - Resolving Erlang node port and release name on a pod '${POD_NAME}'."
-LOCAL_DIST_PORT=$(awk 'BEGIN{srand();print int(rand()*(63000-2000))+2000 }')
-echo "   Using local port: ${LOCAL_DIST_PORT}"
 DIST_PORTS=()
 EPMD_OUTOUT=$(kubectl exec ${POD_NAME} --namespace=${K8S_NAMESPACE} -i -t -- epmd -names)
 while read -r DIST_PORT; do
@@ -119,33 +117,29 @@ echo " - Connecting to ${RELEASE_NAME} on ports ${DIST_PORTS[@]} with cookie '${
 # Kill epmd on local node to free 4369 port
 killall epmd &> /dev/null || true
 
-echo "+ kubectl port-forward ${POD_NAME} --namespace=${K8S_NAMESPACE} ${DIST_PORTS[@]} ${LOCAL_DIST_PORT} &> /dev/null &"
-# Replace it with remote nodes epmd and proxy remove erlang app port
-kubectl port-forward --namespace=${K8S_NAMESPACE} \
-  ${POD_NAME} \
-  ${DIST_PORTS[@]} \
-  ${LOCAL_DIST_PORT} \
-&> /dev/null &
+echo "+ kubectl port-forward --namespace=${K8S_NAMESPACE} ${POD_NAME} ${DIST_PORTS[@]} &>/dev/null &"
+kubectl port-forward --namespace=${K8S_NAMESPACE} ${POD_NAME} ${DIST_PORTS[@]} &>/dev/null &
 
 echo "- Waiting for for tunnel to be established"
 for i in `seq 1 30`; do
   [[ "${i}" == "30" ]] && echo "Failed waiting for port forward" && exit 1
-  nc -z localhost ${LOCAL_DIST_PORT} && break
+  nc -z localhost ${DIST_PORTS[0]} && break
   echo -n .
   sleep 1
 done
 
-echo "- You can use following node name to manually connect to it in Observer: "
-echo "  ${RELEASE_NAME}@${POD_DNS}"
+echo
+echo " - You can use following node name to manually connect to it in Observer: "
+echo
+echo "     ${RELEASE_NAME}@${POD_DNS}"
+echo
+
+WHOAMI=$(whoami)
 
 # Run observer in hidden mode to avoid hurting cluster's health
-WHOAMI=$(whoami)
-set -x
-
 iex \
   --name "debug-remsh-${WHOAMI}@${POD_DNS}" \
   --cookie "${ERLANG_COOKIE}" \
-  --erl "-start_epmd false -kernel inet_dist_listen_min ${LOCAL_DIST_PORT} inet_dist_listen_max ${LOCAL_DIST_PORT}" \
+  --erl "-start_epmd false" \
   --hidden \
   -e ":observer.start()"
-set +x
