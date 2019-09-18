@@ -111,7 +111,7 @@ done <<< "${EPMD_OUTOUT}"
 RELEASE_NAME=$(echo "${EPMD_OUTOUT}" | tail -n 1 | awk '{print $2;}')
 
 echo " - Adding new record to /etc/hosts."
-echo "${HOST_RECORD}" >> /etc/hosts
+echo "${HOST_RECORD}" | sudo tee -a /etc/hosts &> /dev/null
 
 echo " - Connecting to ${RELEASE_NAME} on ports ${DIST_PORTS[@]}."
 # Kill epmd on local node to free 4369 port
