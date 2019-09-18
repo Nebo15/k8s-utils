@@ -113,7 +113,7 @@ RELEASE_NAME=$(echo "${EPMD_OUTOUT}" | tail -n 1 | awk '{print $2;}')
 echo " - Adding new record to /etc/hosts."
 echo "${HOST_RECORD}" >> /etc/hosts
 
-echo " - Connecting to ${RELEASE_NAME} on ports ${DIST_PORTS[@]} with cookie '${ERLANG_COOKIE}'."
+echo " - Connecting to ${RELEASE_NAME} on ports ${DIST_PORTS[@]}."
 # Kill epmd on local node to free 4369 port
 killall epmd &> /dev/null || true
 
