@@ -22,7 +22,7 @@ function show_help {
   Available databases:
 "
 
-  ktl get pods -n kube-system -l proxy_to=google_cloud_sql --all-namespaces=true -o json \
+  ktl get pods -n kube-system -l proxy_to=google_cloud_sql -o json \
     | jq -r '.items[] | "\(.metadata.namespace)\t\(.metadata.name)\t\(.metadata.labels.instance_name)\tktl pg:psql -n \(.metadata.namespace) -l instance_name=\(.metadata.labels.instance_name)"' \
     | awk -v FS="," 'BEGIN{print "    Namespace\tPod Name\tCloud SQL Instance_Name\tktl command";}{printf "    %s\t%s\t%s\t%s%s",$1,$2,$3,$4,ORS}' \
     | column -ts $'\t'
