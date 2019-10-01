@@ -24,7 +24,7 @@ POD_NAME=
 # Read configuration from CLI
 while getopts "n:l:p:h" opt; do
   case "$opt" in
-    n)  K8S_NAMESPACE="--namespace=${OPTARG}"
+    n)  K8S_NAMESPACE=${OPTARG}
         ;;
     l)  K8S_SELECTOR=${OPTARG}
         ;;
@@ -66,4 +66,4 @@ if [[ "${POD_NAME}" == "" ]]; then
 fi
 
 echo "Found pod ${POD_NAME}."
-kubectl exec ${K8S_NAMESPACE} ${POD_NAME} -it -- ${COMMAND}
+kubectl exec --namespace=${K8S_NAMESPACE} ${POD_NAME} -it -- ${COMMAND}
