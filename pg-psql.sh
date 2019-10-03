@@ -12,6 +12,7 @@ function show_help {
     -nNAMESPACE         Namespace for a pod that exposes PostgreSQL instance. Default: kube-system.
     -pPORT              Local port for forwarding. Default: random port.
     -dpostgres          Database name to use. Default: postgres.
+    -sSECRET_NAMESPACE  Namespace to search for the secret that holds DB credentials. Default: all.
     -h                  Show help and exit.
 
   Examples:
@@ -21,7 +22,7 @@ function show_help {
   Available databases:
 "
 
-  ktl get pods -n kube-system -l proxy_to=google_cloud_sql --all-namespaces=true -o json \
+  ktl get pods -n kube-system -l proxy_to=google_cloud_sql -o json \
     | jq -r '.items[] | "\(.metadata.namespace)\t\(.metadata.name)\t\(.metadata.labels.instance_name)\tktl pg:psql -n \(.metadata.namespace) -l instance_name=\(.metadata.labels.instance_name)"' \
     | awk -v FS="," 'BEGIN{print "    Namespace\tPod Name\tCloud SQL Instance_Name\tktl command";}{printf "    %s\t%s\t%s\t%s%s",$1,$2,$3,$4,ORS}' \
     | column -ts $'\t'
@@ -30,9 +31,10 @@ function show_help {
 PORT=$(awk 'BEGIN{srand();print int(rand()*(63000-2000))+2000 }')
 POSTGRES_DB="postgres"
 K8S_NAMESPACE="--namespace=kube-system"
+SECRET_NAMESPACE="--all-namespaces"
 
 # Read configuration from CLI
-while getopts "hn:l:p:d:" opt; do
+while getopts "hn:l:p:d:s:" opt; do
   case "$opt" in
     n)  K8S_NAMESPACE="--namespace=${OPTARG}"
         ;;
@@ -41,6 +43,8 @@ while getopts "hn:l:p:d:" opt; do
     p)  PORT="${OPTARG}"
         ;;
     d)  POSTGRES_DB="${OPTARG}"
+        ;;
+    s)  SECRET_NAMESPACE="--namespace=${OPTARG}"
         ;;
     h)  show_help
         exit 0
@@ -78,7 +82,7 @@ fi
 echo " - Found pod ${POD_NAME}."
 
 DB_CONNECTION_SECRET=$(
-  kubectl get secrets --all-namespaces=true \
+  kubectl get secrets ${SECRET_NAMESPACE} \
     -l "service=google_cloud_sql,${K8S_SELECTOR}" \
     -o json | jq -r '.items[0]'
 )
