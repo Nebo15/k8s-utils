@@ -1,5 +1,6 @@
 #!/bin/bash
-set -em
+K8S_UTILS_DIR="${BASH_SOURCE%/*}"
+source ${K8S_UTILS_DIR}/helpers.sh
 
 function show_help {
   echo "
@@ -46,23 +47,23 @@ function values_path() {
   fi
 }
 
-function get_manifest_version() {
+function get_helm_version() {
   VALUES_PATH=$(values_path $1 $2)
   [[ -e "${VALUES_PATH}" ]] && cat "${VALUES_PATH}" | grep "imageTag" | awk '{print $NF;}' | sed 's/"//g' || echo ""
 }
 
 function promote() {
-  FROM_VERSION=$(get_manifest_version $1 $3)
-  TO_VERSION=$(get_manifest_version $1 $2)
+  FROM_VERSION=$(get_helm_version $1 $3)
+  TO_VERSION=$(get_helm_version $1 $2)
   VALUES_PATH=$(values_path $1 $3)
 
   if [[ "${FROM_VERSION}" != "" && "${TO_VERSION}" != "" ]]; then
     sed -E -i '' 's#(imageTag:[ ]*"[^"]*"[ ]*)#imageTag: "'${TO_VERSION}'"#' "${VALUES_PATH}"
-    echo "[I] Promoted $1 ${FROM_VERSION} -> ${TO_VERSION}"
+    log_step "Promoted $1 ${FROM_VERSION} -> ${TO_VERSION}"
   elif [[ "${FROM_VERSION}" == "" ]]; then
-    echo "[W] Skipping $1 app because it have no configuration for $3 environment"
+    warning "Skipping $1 app because it have no configuration for $3 environment"
   elif [[ "${TO_VERSION}" == "" ]]; then
-    echo "[W] Skipping $1 app because it have no configuration for $2 environment"
+    warning "Skipping $1 app because it have no configuration for $2 environment"
   fi;
 }
 
@@ -73,8 +74,7 @@ if [[ "${APPLICATION}" == "" ]]; then
   done
 else
   if [[ ! -d "${APPLICATIONS_DIR}/${APPLICATION}" ]]; then
-    echo "[E] Application ${APPLICATION} does not exist"
-    exit 1
+    error "Application ${APPLICATION} does not exist"
   fi;
 
   promote $APPLICATION $FROM $TO

@@ -1,8 +1,9 @@
 #!/bin/bash
 # This script backups all critical data, allowing to move it from one environment to another
-set -e
+K8S_UTILS_DIR="${BASH_SOURCE%/*}"
+source ${K8S_UTILS_DIR}/helpers.sh
 
-echo "Creating temporarely Docker Hub token to pull list of tags"
+log_step "Creating temporarely Docker Hub token to pull list of tags"
 DOCKER_REGISTRY="https://index.docker.io/v1/"
 if [ -z "${DOCKER_CREDENTIALS}" ]; then
   DOCKER_CREDENTIALS=$(echo "${DOCKER_REGISTRY}" | docker-credential-osxkeychain get)
@@ -31,7 +32,7 @@ function get_manifest_version() {
   [[ -e "${VALUES_PATH}" ]] && cat "${VALUES_PATH}" | grep "imageTag" | awk '{print $NF;}' | sed 's/"//g' || echo "Unknown"
 }
 
-echo "Loading cluster status (this may take a while).."
+log_step "Loading cluster status (this may take a while).."
 
 get_cluser_versions | \
   jq -r '.[] | "\(.ns)|\(.app)|\(.container)|\(.version)"' | \

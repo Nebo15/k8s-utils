@@ -3,139 +3,74 @@
 #
 # Application on remote node should include `:runtime_tools` in it's applications dependencies, otherwise
 # you will receive `rpc:handle_call` error.
-set -eo pipefail
+K8S_UTILS_DIR="${BASH_SOURCE%/*}"
+source ${K8S_UTILS_DIR}/helpers.sh
 
-K8S_NAMESPACE=
+function show_help {
+  echo "
+  ktl iex:observer -lSELECTOR or -pPOD_NAME [-nNAMESPACE -h]
+
+  Connect local IEx session to a remote running Erlang/OTP node and start an Observer application.
+
+  If there are multuple pods that match the selector - random one is choosen.
+
+  Examples:
+    ktl iex:observer -lapp=hammer-web                Connect to one of the pods of hammer-web application in default namespace.
+    ktl iex:observer -lapp=hammer-web -nweb          Connect to one of the pods of hammer-web application in web namespace.
+    ktl iex:observer -phammer-web-kfjsu-3827 -nweb   Connect to hammer-web pod in web namespace.
+"
+}
+
+POD_NAMESPACE=""
 POD_NAME=
 K8S_SELECTOR=
-ERL_COOKIE=
 
 # Read configuration from CLI
-while getopts "n:l:p:c:r" opt; do
+while getopts "n:l:p:h" opt; do
   case "$opt" in
-    n)  K8S_NAMESPACE=${OPTARG}
+    n)  POD_NAMESPACE=${OPTARG}
         ;;
     l)  K8S_SELECTOR=${OPTARG}
         ;;
-    c)  ERL_COOKIE=${OPTARG}
-        ;;
     p)  POD_NAME=${OPTARG}
+        ;;
+    h)  show_help
+        exit 0
         ;;
   esac
 done
 
-K8S_NAMESPACE=${K8S_NAMESPACE:-default}
+if [[ $UID != 0 ]]; then
+  error "Please run this script with sudo: sudo ktl iex:observer $*"
+fi
 
-# Required part of config
 if [[ ! $K8S_SELECTOR && ! $POD_NAME ]]; then
-  echo "[E] You need to specify Kubernetes selector with '-l' option or pod name via '-p' option."
-  exit 1
+  error "You need to specify Kubernetes selector with '-l' option or pod name via '-p' option."
 fi
 
 if [ ! $POD_NAME ]; then
-  echo " - Selecting pod with '-l ${K8S_SELECTOR} --namespace=${K8S_NAMESPACE}' selector."
-  POD_NAME=$(
-    kubectl get pods --namespace=${K8S_NAMESPACE} \
-      -l ${K8S_SELECTOR} \
-      -o jsonpath='{.items[0].metadata.name}' \
-      --field-selector=status.phase=Running
-  )
+  POD_NAME=$(fetch_pod_name "${POD_NAMESPACE}" "${K8S_SELECTOR}")
 fi
 
-# A basic wrapper for `sed` that works with both macOS and GNU versions
-OS=`uname`
-function delete_pattern_in_file {
-  if [ "${OS}" = "Darwin" ]; then
-    sudo sed -i '' "$1" "$2"
-  else
-    sudo sed -i "$1" "$2"
-  fi
-}
-
-# Trap exit so we can try to kill proxies that has stuck in background
-function cleanup {
-  set +x
-  delete_pattern_in_file "/${HOST_RECORD}/d" /etc/hosts
-  echo " - Stopping kubectl proxy."
-  kill $! &> /dev/null
-}
-trap cleanup EXIT;
-
-if [[ "${ERLANG_COOKIE}" == "" ]]; then
-  echo " - Resolving Erlang cookie from pod '${POD_NAME}' environment variables."
-  ERLANG_COOKIE=$(
-    kubectl get pod ${POD_NAME} \
-      --namespace=${K8S_NAMESPACE} \
-      -o jsonpath='{$.spec.containers[0].env[?(@.name=="ERLANG_COOKIE")].value}'
-  )
+if [ ! $POD_NAMESPACE ]; then
+  POD_NAMESPACE=$(get_pod_namespace "${POD_NAME}")
 fi
 
-if [[ "${ERLANG_COOKIE}" == "" ]]; then
-  echo " - Resolving Erlang cookie from secret linked to pod '${POD_NAME}' variables."
-  ERLANG_COOKIE_SECRET_NAME=$(
-    kubectl get pod ${POD_NAME} \
-      --namespace=${K8S_NAMESPACE} \
-      -o jsonpath='{$.spec.containers[0].env[?(@.name=="ERLANG_COOKIE")].valueFrom.secretKeyRef.name}'
-  )
+LOCAL_DIST_PORT=$(get_free_random_port)
+ERLANG_COOKIE=$(get_erlang_cookie "${POD_NAMESPACE}" "${POD_NAME}")
+POD_DNS=$(get_pod_dns_record "${POD_NAMESPACE}" "${POD_NAME}")
+EPMD_NAMES=$(get_epmd_names "${POD_NAMESPACE}" "${POD_NAME}")
+RELEASE_NAME=$(ger_erlang_release_name_from_epmd_names "${EPMD_NAMES}")
+ERLANG_DISTRIBUTION_PORTS=$(get_erlang_distribution_ports_from_epmd_names "${EPMD_NAMES}")
 
-  ERLANG_COOKIE_SECRET_KEY_NAME=$(
-    kubectl get pod ${POD_NAME} \
-      --namespace=${K8S_NAMESPACE} \
-      -o jsonpath='{$.spec.containers[0].env[?(@.name=="ERLANG_COOKIE")].valueFrom.secretKeyRef.key}'
-  )
+tunnel_erlang_distribution_connections "${POD_NAMESPACE}" "${POD_NAME}" "${POD_DNS}" "${LOCAL_DIST_PORT}" "${ERLANG_DISTRIBUTION_PORTS}"
 
-  ERLANG_COOKIE=$(
-    kubectl get secret ${ERLANG_COOKIE_SECRET_NAME} \
-      --namespace=${K8S_NAMESPACE} \
-      -o jsonpath='{$.data.'${ERLANG_COOKIE_SECRET_KEY_NAME}'}' | base64 --decode
-  )
-fi
+log_step "You can use following node name to manually connect to it in Observer: "
+banner "${RELEASE_NAME}@${POD_DNS}"
 
-echo " - Resolving pod ip from pod '${POD_NAME}' environment variables."
-POD_IP=$(
-  kubectl get pod ${POD_NAME} \
-    --namespace=${K8S_NAMESPACE} \
-    -o jsonpath='{$.status.podIP}'
-)
-POD_DNS=$(echo $POD_IP | sed 's/\./-/g')."${K8S_NAMESPACE}.pod.cluster.local"
-HOST_RECORD="127.0.0.1 ${POD_DNS}"
-
-echo " - Resolving Erlang node port and release name on a pod '${POD_NAME}'."
-DIST_PORTS=()
-EPMD_OUTOUT=$(kubectl exec ${POD_NAME} --namespace=${K8S_NAMESPACE} -i -t -- epmd -names)
-while read -r DIST_PORT; do
-    DIST_PORT=$(echo "${DIST_PORT}" | sed 's/.*port //g; s/[^0-9]*//g')
-    echo "   Found port: ${DIST_PORT}"
-    DIST_PORTS+=(${DIST_PORT})
-done <<< "${EPMD_OUTOUT}"
-RELEASE_NAME=$(echo "${EPMD_OUTOUT}" | tail -n 1 | awk '{print $2;}')
-
-echo " - Adding new record to /etc/hosts."
-echo "${HOST_RECORD}" | sudo tee -a /etc/hosts &> /dev/null
-
-echo " - Connecting to ${RELEASE_NAME} on ports ${DIST_PORTS[@]}."
-# Kill epmd on local node to free 4369 port
-killall epmd &> /dev/null || true
-
-echo "+ kubectl port-forward --namespace=${K8S_NAMESPACE} ${POD_NAME} ${DIST_PORTS[@]} &>/dev/null &"
-kubectl port-forward --namespace=${K8S_NAMESPACE} ${POD_NAME} ${DIST_PORTS[@]} &>/dev/null &
-
-echo "- Waiting for for tunnel to be established"
-for i in `seq 1 30`; do
-  [[ "${i}" == "30" ]] && echo "Failed waiting for port forward" && exit 1
-  nc -z localhost ${DIST_PORTS[0]} && break
-  echo -n .
-  sleep 1
-done
-
-echo
-echo " - You can use following node name to manually connect to it in Observer: "
-echo
-echo "     ${RELEASE_NAME}@${POD_DNS}"
-echo
+log_step "Connecting to ${RELEASE_NAME} on ports ${ERLANG_DISTRIBUTION_PORTS} with cookie '${ERLANG_COOKIE}'."
 
 WHOAMI=$(whoami)
-
 # Run observer in hidden mode to avoid hurting cluster's health
 iex \
   --name "debug-remsh-${WHOAMI}@${POD_DNS}" \

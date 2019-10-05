@@ -3,31 +3,36 @@
 #
 # Application on remote node should include `:runtime_tools` in it's applications dependencies, otherwise
 # you will receive `rpc:handle_call` error.
-set -e
+K8S_UTILS_DIR="${BASH_SOURCE%/*}"
+source ${K8S_UTILS_DIR}/helpers.sh
 
 function show_help {
   echo "
-  ktl erl:shell -lSELECTOR [-nNAMESPACE -cCOOKIE -h]
+  ktl erl:shell -lSELECTOR or -pPOD_NAME [-nNAMESPACE -h]
 
   Connect to a shell of running Erlang/OTP node. Shell is executed wihin the pod.
 
   If there are multuple pods that match the selector - random one is choosen.
 
   Examples:
-    ktl erl:shell -lapp=hammer-web           Connect to one of the pods of hammer-web application in default namespace.
-    ktl erl:shell -lapp=hammer-web -nweb     Connect to one of the pods of hammer-web application in web namespace.
-    ktl erl:shell -lapp=hammer-web -cfoo     Connect to one of the pods of hammer-web application with cookie foo.
+    ktl erl:shell -lapp=hammer-web                Connect to one of the pods of hammer-web application in default namespace.
+    ktl erl:shell -lapp=hammer-web -nweb          Connect to one of the pods of hammer-web application in web namespace.
+    ktl erl:shell -phammer-web-kfjsu-3827 -nweb   Connect to hammer-web pod in web namespace.
 "
 }
 
+K8S_NAMESPACE=""
+POD_NAME=
+K8S_SELECTOR=
+
 # Read configuration from CLI
-while getopts "n:l:c:h" opt; do
+while getopts "n:l:p:h" opt; do
   case "$opt" in
     n)  K8S_NAMESPACE=${OPTARG}
         ;;
     l)  K8S_SELECTOR=${OPTARG}
         ;;
-    c)  ERL_COOKIE=${OPTARG}
+    p)  POD_NAME=${OPTARG}
         ;;
     h)  show_help
         exit 0
@@ -35,33 +40,22 @@ while getopts "n:l:c:h" opt; do
   esac
 done
 
-K8S_NAMESPACE=${K8S_NAMESPACE:-default}
-
 # Required part of config
-if [ ! $K8S_SELECTOR ]; then
-  echo "[E] You need to specify Kubernetes selector with '-l' option."
-  exit 1
+if [[ ! $K8S_SELECTOR && ! $POD_NAME ]]; then
+  error "You need to specify Kubernetes selector with '-l' option or pod name via '-p' option."
 fi
 
-echo " - Selecting pod with '-l ${K8S_SELECTOR} --namespace=${K8S_NAMESPACE}' selector."
-POD_NAME=$(
-  kubectl get pods --namespace=${K8S_NAMESPACE} \
-    -l ${K8S_SELECTOR} \
-    -o jsonpath='{.items[0].metadata.name}' \
-    --field-selector=status.phase=Running
-)
+if [ ! $POD_NAME ]; then
+  POD_NAME=$(fetch_pod_name "${K8S_NAMESPACE}" "${K8S_SELECTOR}")
+fi
 
-echo " - Resolving pod ip from pod '${POD_NAME}' environment variables."
-POD_IP=$(
-  kubectl get pod ${POD_NAME} \
-    --namespace=${K8S_NAMESPACE} \
-    -o jsonpath='{$.status.podIP}'
-)
-POD_DNS=$(echo $POD_IP | sed 's/\./-/g')."${K8S_NAMESPACE}.pod.cluster.local"
+if [ ! $K8S_NAMESPACE ]; then
+  K8S_NAMESPACE=$(get_pod_namespace "${POD_NAME}")
+fi
 
-echo " - Entering shell on remote Erlang/OTP node."
-set -x
+POD_DNS=$(get_pod_dns_record "${K8S_NAMESPACE}" "${POD_NAME}")
+
+log_step "Entering shell on remote Erlang/OTP node."
 kubectl exec ${POD_NAME} --namespace=${K8S_NAMESPACE} \
   -it \
   -- /bin/sh -c 'erl -name debug_cli_'$(whoami)'@'${POD_DNS}' -setcookie ${ERLANG_COOKIE} -hidden -remsh $(epmd -names | tail -n 1 | awk '"'"'{print $2}'"'"')@'${POD_DNS}
-set +x

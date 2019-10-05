@@ -1,5 +1,6 @@
 #!/bin/bash
-set -e
+K8S_UTILS_DIR="${BASH_SOURCE%/*}"
+source ${K8S_UTILS_DIR}/helpers.sh
 
 function show_help {
   echo "
@@ -44,26 +45,17 @@ if [[ "${COMMAND}" == "" ]]; then
   COMMAND="/bin/sh"
 fi
 
-# Required part of config
 if [[ ! $K8S_SELECTOR && ! $POD_NAME ]]; then
-  echo "[E] You need to specify Kubernetes selector with '-l' option or pod name via '-p' option."
-  exit 1
+  error "You need to specify Kubernetes selector with '-l' option or pod name via '-p' option."
 fi
 
 if [ ! $POD_NAME ]; then
-  echo " - Selecting pod with '-l ${K8S_SELECTOR} --namespace=${K8S_NAMESPACE}' selector."
-  POD_NAME=$(
-    kubectl get pods --namespace=${K8S_NAMESPACE} \
-      -l ${K8S_SELECTOR} \
-      -o jsonpath='{.items[0].metadata.name}' \
-      --field-selector=status.phase=Running
-  )
+  POD_NAME=$(fetch_pod_name "${POD_NAMESPACE}" "${K8S_SELECTOR}")
 fi
 
-if [[ "${POD_NAME}" == "" ]]; then
-  echo "[E] Pod wasn't found. Try to select it with -n [namespace] and -l [selector] options."
-  exit 1
+if [ ! $POD_NAMESPACE ]; then
+  POD_NAMESPACE=$(get_pod_namespace "${POD_NAME}")
 fi
 
-echo "Found pod ${POD_NAME}."
+lost_step "Running ${COMMAND} on pod ${POD_NAME} in namespace {K8S_NAMESPACE}."
 kubectl exec --namespace=${K8S_NAMESPACE} ${POD_NAME} -it -- ${COMMAND}

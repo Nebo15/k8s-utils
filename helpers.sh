@@ -1,7 +1,11 @@
 #!/bin/bash
 set -meuo pipefail
 
-log() {
+PROJECT_ROOT_DIR=$(git rev-parse --show-toplevel)
+HELM_APPLICATION_CHARTS_DIR="${PROJECT_ROOT_DIR}/rel/deployment/charts/applications"
+OS=`uname`
+
+log_step() {
   echo "- $1" >&2
 }
 
@@ -16,21 +20,37 @@ error() {
   exit 1
 }
 
-PROJECT_ROOT_DIR=$(git rev-parse --show-toplevel)
-HELM_APPLICATION_CHARTS_DIR="${PROJECT_ROOT_DIR}/rel/deployment/charts/applications"
+warning() {
+  echo "[W] $1" >&2
+}
+
+# A basic wrapper for `sed` that works with both macOS and GNU versions
+function delete_pattern_in_file {
+  if [ "${OS}" = "Darwin" ]; then
+    sudo sed -i '' "$1" "$2"
+  else
+    sudo sed -i "$1" "$2"
+  fi
+}
 
 function fetch_pod_name() {
   NAMESPACE=$1
   SELECTOR=$2
 
-  log "Selecting pod with '--namespace=${NAMESPACE} --selector=${SELECTOR}' options."
+  if [[ "${NAMESPACE}" = "" ]]; then
+    NAMESPACE_OPT="--all-namespaces=true"
+  else
+    NAMESPACE_OPT="--namespace=${NAMESPACE}"
+  fi
+
+  log_step "Selecting pod with '${NAMESPACE_OPT} --selector=${SELECTOR}' options."
 
   POD_NAME=$(
-    kubectl get pods --namespace="${NAMESPACE}" \
+    kubectl get pods ${NAMESPACE_OPT} \
       --selector="${SELECTOR}" \
       --field-selector='status.phase=Running' \
       --output="json" \
-      | jq -r '.items[0].metadata.name'
+      | jq -r '.items[] | select((.status.conditions[] | select (.status == "True" and .type == "Ready"))) | .metadata.name'
     )
 
   if [[ "${POD_NAME}" == "" || "${POD_NAME}" == "null" ]]; then
@@ -42,11 +62,20 @@ function fetch_pod_name() {
 
 # Pods
 
+function get_pod_namespace() {
+  POD_NAME=$1
+
+  log_step "Getting pod ${POD_NAME} namespace"
+
+  kubectl get pods --all-namespaces=true --output="json" \
+    | jq -r ".items[] | select(.metadata.name == \"${POD_NAME}\") | .metadata.namespace"
+}
+
 function get_pod_ip_address() {
   NAMESPACE=$1
   POD_NAME=$2
 
-  log "Getting pod ${POD_NAME} cluster IP address"
+  log_step "Getting pod ${POD_NAME} cluster IP address"
 
   kubectl get pod ${POD_NAME} --namespace="${NAMESPACE}" --output="json" \
     | jq -r '.status.podIP'
@@ -57,7 +86,7 @@ function get_pod_dns_record() {
   POD_NAME=$2
 
   POD_IP=$(get_pod_ip_address "${NAMESPACE}" "${POD_NAME}")
-  echo $(echo "${POD_IP}" | sed 's/\./-/g')."${POD_NAME}.pod.cluster.local"
+  echo $(echo "${POD_IP}" | sed 's/\./-/g')."${NAMESPACE}.pod.cluster.local"
 }
 
 # Networking
@@ -84,7 +113,7 @@ function ensure_port_is_free() {
 function wait_for_ports_to_become_busy() {
   PORT=$1
 
-  log "Waiting for for ports ${PORT} to start responding"
+  log_step "Waiting for for ports ${PORT} to start responding"
 
   for i in `seq 1 30`; do
     [[ "${i}" == "30" ]] && error "Failed waiting for ports ${PORT} to start responding"
@@ -109,7 +138,7 @@ function get_postgres_user_password() {
   SQL_INSTANCE_NAME=$1
   POSTGRES_USER=$2
 
-  log "Resolving PostgreSQL ${POSTGRES_USER} user password for Cloud SQL instance ${SQL_INSTANCE_NAME}"
+  log_step "Resolving PostgreSQL ${POSTGRES_USER} user password for Cloud SQL instance ${SQL_INSTANCE_NAME}"
 
   POSTGRES_USER_BASE64=$(printf "%s" "${POSTGRES_USER}" | base64)
 
@@ -157,16 +186,101 @@ function tunnel_postgres_connections() {
 
   # Trap exit so we can try to kill proxies that has stuck in background
   function cleanup {
-    log "Stopping port forwarding."
+    log_step "Stopping port forwarding."
     kill $! &> /dev/null
     kill %1 &> /dev/null
   }
   trap cleanup EXIT
 
-  log "Port forwarding remote PostgreSQL to localhost port ${PORT}."
+  log_step "Port forwarding remote PostgreSQL to localhost port ${PORT}."
   kubectl --namespace="${PROXY_POD_NAMESPACE}" port-forward ${PROXY_POD_NAME} ${PORT}:5432 &> /dev/null &
 
   wait_for_ports_to_become_busy ${PORT}
+
+  return 0
+}
+
+# Elixir/Erlang-specific
+
+function get_erlang_cookie() {
+  NAMESPACE=$1
+  POD_NAME=$2
+
+  log_step "Resolving Erlang cookie from secret linked to pod ${POD_NAME} variables."
+
+  ERLANG_COOKIE_SECRET_NAME=$(
+    kubectl get pod ${POD_NAME} \
+      --namespace=${NAMESPACE} \
+      -o jsonpath='{$.spec.containers[0].env[?(@.name=="ERLANG_COOKIE")].valueFrom.secretKeyRef.name}'
+  )
+
+  ERLANG_COOKIE_SECRET_KEY_NAME=$(
+    kubectl get pod ${POD_NAME} \
+      --namespace=${NAMESPACE} \
+      -o jsonpath='{$.spec.containers[0].env[?(@.name=="ERLANG_COOKIE")].valueFrom.secretKeyRef.key}'
+  )
+
+  kubectl get secret ${ERLANG_COOKIE_SECRET_NAME} \
+    --namespace=${NAMESPACE} \
+    -o jsonpath='{$.data.'${ERLANG_COOKIE_SECRET_KEY_NAME}'}' | base64 --decode
+}
+
+function get_epmd_names() {
+  NAMESPACE=$1
+  POD_NAME=$2
+
+  kubectl exec ${POD_NAME} --namespace="${NAMESPACE}" -i -t -- epmd -names
+}
+
+function ger_erlang_release_name_from_epmd_names() {
+  log_step "Resolving Erlang release name"
+  echo "$1" | tail -n 1 | awk '{print $2;}'
+}
+
+function get_erlang_distribution_ports_from_epmd_names() {
+  log_step "Resolving ports used by Erlang distribution"
+
+  while read -r DIST_PORT; do
+    DIST_PORT=$(echo "${DIST_PORT}" | sed 's/.*port //g; s/[^0-9]*//g')
+    log_step "   Found port: ${DIST_PORT}"
+    DIST_PORTS+=(${DIST_PORT})
+  done <<< "$1"
+
+  echo "${DIST_PORTS[@]}"
+}
+
+function tunnel_erlang_distribution_connections() {
+  POD_NAMESPACE=$1
+  POD_NAME=$2
+  POD_DNS=$3
+  LOCAL_DIST_PORT=$4
+  ERLANG_DISTRIBUTION_PORTS=$5
+
+  HOST_RECORD="127.0.0.1 ${POD_DNS}"
+
+  # Trap exit so we can try to kill proxies that has stuck in background
+  function cleanup {
+    set +x
+    delete_pattern_in_file "/${HOST_RECORD}/d" /etc/hosts
+    log_step "Stopping kubectl proxy."
+    kill $! &> /dev/null
+  }
+  trap cleanup EXIT
+
+  log_step "Stopping local EPMD"
+  killall epmd &> /dev/null || true
+
+  log_step "Adding new record to /etc/hosts."
+  echo "${HOST_RECORD}" >> /etc/hosts
+
+  log_step "Port forwarding remote Erlang Distribution ports ${ERLANG_DISTRIBUTION_PORTS} ${LOCAL_DIST_PORT} to localhost."
+  kubectl port-forward --namespace=${POD_NAMESPACE} \
+    ${POD_NAME} \
+    ${ERLANG_DISTRIBUTION_PORTS} \
+    ${LOCAL_DIST_PORT} \
+    &> /dev/null &
+
+  wait_for_ports_to_become_busy ${LOCAL_DIST_PORT}
 
   return 0
 }
