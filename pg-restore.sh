@@ -8,6 +8,9 @@ function show_help {
 
   Restores PostgreSQL database from a local directory (in binary format).
 
+  By default, it would restore entire database. This can be overriden by -o option that would only restore
+  data in existing tables. You can also drop existing data by using -c option.
+
   Options:
     -iINSTANCE_NAME     Cloud SQL Instance name to which connection is established. Required.
     -uUSERNAME          PostgreSQL user name which would be used to log in. Required.
@@ -17,7 +20,8 @@ function show_help {
     -e                  List of tables to exclude from export. Comma delimited. By default no tables are ignored.
     -f                  Path to directory where dumps are stored. By default: ./dumps
     -h                  Show help and exit.
-    -o                  Only insert data.
+    -o                  Only insert data within single transaction and do not clean database before insert.
+    -c                  Clean database before inserting data.
 
   Examples:
     ktl pg:restore -dtalkinto -istaging -utalkinto
@@ -35,10 +39,11 @@ PROXY_POD_NAMESPACE="kube-system"
 DUMP_PATH="./dumps"
 TABLES=""
 EXCLUDE_TABLES=""
-DATA_ONLY=""
+DATA_COMMAND=""
+CLEAN_COMMAND=""
 
 # Read configuration from CLI
-while getopts "hn:i:u:d:t:e:f:o" opt; do
+while getopts "hn:i:u:d:t:e:f:oc" opt; do
   case "$opt" in
     n)  PROXY_POD_NAMESPACE="${OPTARG}"
         ;;
@@ -59,7 +64,9 @@ while getopts "hn:i:u:d:t:e:f:o" opt; do
     e)  EXCLUDE_TABLES="${OPTARG}"
         EXCLUDE_TABLES="--exclude-table=${EXCLUDE_TABLES//,/ --exclude-table=}"
         ;;
-    o)  DATA_ONLY="--data-only"
+    o)  DATA_COMMAND="--data-only --single-transaction"
+        ;;
+    c)  CLEAN_COMMAND="--clean"
         ;;
   esac
 done
@@ -90,6 +97,7 @@ tunnel_postgres_connections "${PROXY_POD_NAMESPACE}" "${PROXY_POD_NAME}" ${PORT}
 
 log_step "Restoring remote ${POSTGRES_DB} DB from ./dumps/${POSTGRES_DB}"
 
+
 set -x
 PGPASSWORD="$POSTGRES_PASSWORD" \
 pg_restore dumps/${POSTGRES_DB} \
@@ -97,8 +105,8 @@ pg_restore dumps/${POSTGRES_DB} \
   -p ${PORT} \
   -U ${POSTGRES_USER} \
   -d ${POSTGRES_DB} \
-  --verbose \
-  --no-acl \
-  --no-owner \
-  --format c ${TABLES} ${EXCLUDE_TABLES} ${DATA_ONLY}
+  --format c \
+  ${DATA_COMMAND} ${CLEAN_COMMAND} --no-acl --no-owner \
+  --exit-on-error \
+  --verbose ${TABLES} ${EXCLUDE_TABLES}
 set +x
