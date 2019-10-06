@@ -4,7 +4,7 @@ source ${K8S_UTILS_DIR}/helpers.sh
 
 function show_help {
   echo "
-  ktl pg:psql -istaging -utalkinto [-h -p5432 -dpostgres -nkube-system]
+  ktl pg:psql -istaging -utalkinto [-h -p5432 -dpostgres -nkube-system] [SELECT true;]
 
   Run psql on localhost and connect it to a remote PostgreSQL instance.
 
@@ -30,6 +30,7 @@ function show_help {
 PORT=""
 POSTGRES_DB="postgres"
 PROXY_POD_NAMESPACE="kube-system"
+COMMAND=""
 
 # Read configuration from CLI
 while getopts "hn:i:u:p:d:" opt; do
@@ -51,6 +52,9 @@ while getopts "hn:i:u:p:d:" opt; do
         ;;
   esac
 done
+
+shift $(expr $OPTIND - 1)
+COMMAND=$@
 
 if [[ "${INSTANCE_NAME}" == "" ]]; then
   error "Instance name is not set, use -i option to set it or -h for list of available values"
@@ -74,5 +78,10 @@ POSTGRES_CONNECTION_STRING=$(get_postgres_connection_url "${POSTGRES_USER}" "${P
 
 tunnel_postgres_connections "${PROXY_POD_NAMESPACE}" "${PROXY_POD_NAME}" ${PORT}
 
-log_step "Running: psql postgres://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}"
-psql "${POSTGRES_CONNECTION_STRING}"
+if [[ "${COMMAND}" == "" ]]; then
+  log_step "Running: psql postgres://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}"
+  psql "${POSTGRES_CONNECTION_STRING}"
+else
+  log_step "Executing SQL query '${COMMAND}' on postgres://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}"
+  psql "${POSTGRES_CONNECTION_STRING}" --command "${COMMAND};"
+fi

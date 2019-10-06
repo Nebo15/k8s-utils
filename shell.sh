@@ -4,7 +4,7 @@ source ${K8S_UTILS_DIR}/helpers.sh
 
 function show_help {
   echo "
-  ktl shell -lSELECTOR or -pPOD_NAME [-nNAMESPACE -h /bin/sh]
+  ktl shell -lSELECTOR or -pPOD_NAME [-nNAMESPACE -h] [/bin/sh]
 
   Connects to the shell of a random pod selected by label and namespace.
 
