@@ -188,7 +188,6 @@ function tunnel_postgres_connections() {
   function cleanup {
     log_step "Stopping port forwarding."
     kill $! &> /dev/null
-    kill %1 &> /dev/null
   }
   trap cleanup EXIT
 

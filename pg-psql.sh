@@ -4,7 +4,7 @@ source ${K8S_UTILS_DIR}/helpers.sh
 
 function show_help {
   echo "
-  ktl pg:psql -istaging -utalkinto [-h -p5432 -dpostgres -nkube-system] [SELECT true;]
+  ktl pg:psql -istaging -utalkinto [-h -p5432 -dpostgres -nkube-system -ffoo.sql] [SELECT true;]
 
   Run psql on localhost and connect it to a remote PostgreSQL instance.
 
@@ -15,6 +15,7 @@ function show_help {
     -pPORT              Local port for forwarding. Default: random port.
     -dpostgres          Database name to use. Default: postgres.
     -sSECRET_NAMESPACE  Namespace to search for the secret that holds DB credentials. Default: all.
+    -fFILE              Executes SQL commands from specficied file.
     -h                  Show help and exit.
 
   Examples:
@@ -30,10 +31,11 @@ function show_help {
 PORT=""
 POSTGRES_DB="postgres"
 PROXY_POD_NAMESPACE="kube-system"
+FILE=""
 COMMAND=""
 
 # Read configuration from CLI
-while getopts "hn:i:u:p:d:" opt; do
+while getopts "hn:i:u:p:d:f:" opt; do
   case "$opt" in
     n)  PROXY_POD_NAMESPACE="${OPTARG}"
         ;;
@@ -46,6 +48,8 @@ while getopts "hn:i:u:p:d:" opt; do
     d)  POSTGRES_DB="${OPTARG}"
         ;;
     s)  SECRET_NAMESPACE="--namespace=${OPTARG}"
+        ;;
+    f)  FILE="${OPTARG}"
         ;;
     h)  show_help
         exit 0
@@ -78,10 +82,13 @@ POSTGRES_CONNECTION_STRING=$(get_postgres_connection_url "${POSTGRES_USER}" "${P
 
 tunnel_postgres_connections "${PROXY_POD_NAMESPACE}" "${PROXY_POD_NAME}" ${PORT}
 
-if [[ "${COMMAND}" == "" ]]; then
+if [[ "${COMMAND}" != "" ]]; then
+  log_step "Executing SQL query '${COMMAND}' on postgres://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}"
+  psql "${POSTGRES_CONNECTION_STRING}" --echo-queries --command "${COMMAND};"
+elif [[ "${FILE}" != "" ]]; then
+  log_step "Executing SQL queries from file '${FILE}' on postgres://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}"
+  psql "${POSTGRES_CONNECTION_STRING}" --echo-queries --file=${FILE}
+else
   log_step "Running: psql postgres://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}"
   psql "${POSTGRES_CONNECTION_STRING}"
-else
-  log_step "Executing SQL query '${COMMAND}' on postgres://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}"
-  psql "${POSTGRES_CONNECTION_STRING}" --command "${COMMAND};"
 fi
