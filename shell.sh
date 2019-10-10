@@ -17,17 +17,17 @@ function show_help {
 "
 }
 
-K8S_NAMESPACE=""
-K8S_SELECTOR=
-COMMAND=
+POD_NAMESPACE=""
+POD_SELECTOR=
+COMMAND="/bin/sh"
 POD_NAME=
 
 # Read configuration from CLI
 while getopts "n:l:p:h" opt; do
   case "$opt" in
-    n)  K8S_NAMESPACE=${OPTARG}
+    n)  POD_NAMESPACE=${OPTARG}
         ;;
-    l)  K8S_SELECTOR=${OPTARG}
+    l)  POD_SELECTOR=${OPTARG}
         ;;
     c)  COMMAND=${OPTARG}
         ;;
@@ -38,24 +38,24 @@ while getopts "n:l:p:h" opt; do
         ;;
   esac
 done
-shift $(expr $OPTIND - 1 )
-COMMAND=$1
+shift $(expr $OPTIND - 1)
+REST_COMMAND=$@
 
-if [[ "${COMMAND}" == "" ]]; then
-  COMMAND="/bin/sh"
+if [[ "${REST_COMMAND}" != "" ]]; then
+  COMMAND="${REST_COMMAND}"
 fi
 
-if [[ ! $K8S_SELECTOR && ! $POD_NAME ]]; then
+if [[ ! $POD_SELECTOR && ! $POD_NAME ]]; then
   error "You need to specify Kubernetes selector with '-l' option or pod name via '-p' option."
 fi
 
 if [ ! $POD_NAME ]; then
-  POD_NAME=$(fetch_pod_name "${POD_NAMESPACE}" "${K8S_SELECTOR}")
+  POD_NAME=$(fetch_pod_name "${POD_NAMESPACE}" "${POD_SELECTOR}")
 fi
 
 if [ ! $POD_NAMESPACE ]; then
   POD_NAMESPACE=$(get_pod_namespace "${POD_NAME}")
 fi
 
-lost_step "Running ${COMMAND} on pod ${POD_NAME} in namespace {K8S_NAMESPACE}."
-kubectl exec --namespace=${K8S_NAMESPACE} ${POD_NAME} -it -- ${COMMAND}
+log_step "Running ${COMMAND} on pod ${POD_NAME} in namespace ${POD_NAMESPACE}."
+kubectl exec --namespace=${POD_NAMESPACE} ${POD_NAME} -it -- ${COMMAND}
