@@ -33,6 +33,14 @@ function delete_pattern_in_file {
   fi
 }
 
+function replace_pattern_in_file {
+  if [ "${OS}" = "Darwin" ]; then
+    sed -E -i '' "$1" "$2"
+  else
+    sed -E -i "$1" "$2"
+  fi
+}
+
 function fetch_pod_name() {
   NAMESPACE=$1
   SELECTOR=$2

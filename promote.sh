@@ -58,7 +58,7 @@ function promote() {
   VALUES_PATH=$(values_path $1 $3)
 
   if [[ "${FROM_VERSION}" != "" && "${TO_VERSION}" != "" ]]; then
-    sed -E -i '' 's#(imageTag:[ ]*"[^"]*"[ ]*)#imageTag: "'${TO_VERSION}'"#' "${VALUES_PATH}"
+    replace_pattern_in_file 's#(imageTag:[ ]*"[^"]*"[ ]*)#imageTag: "'${TO_VERSION}'"#' "${VALUES_PATH}"
     log_step "Promoted $1 ${FROM_VERSION} -> ${TO_VERSION}"
   elif [[ "${FROM_VERSION}" == "" ]]; then
     warning "Skipping $1 app because it have no configuration for $3 environment"
