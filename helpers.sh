@@ -58,7 +58,8 @@ function fetch_pod_name() {
       --selector="${SELECTOR}" \
       --field-selector='status.phase=Running' \
       --output="json" \
-      | jq -r '.items[] | select((.status.conditions[] | select (.status == "True" and .type == "Ready"))) | .metadata.name'
+      | jq -r '.items[] | select((.status.conditions[] | select (.status == "True" and .type == "Ready"))) | .metadata.name' \
+      | head -n 1
     )
 
   if [[ "${POD_NAME}" == "" || "${POD_NAME}" == "null" ]]; then
