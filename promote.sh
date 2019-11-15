@@ -60,7 +60,7 @@ function commit_changes() {
 
   git add ${VALUES_PATH}
   git commit \
-    -m "Promote ${TO}/${APPLICATION} from ${FROM_VERSION} to ${TO_VERSION}" \
+    -m "Promote ${TO}/${APPLICATION} from ${FROM_VERSION} to ${TO_VERSION} [ci skip]" \
     -m "Promoted from ${FROM} to ${TO} environment." \
     &> /dev/null
 }
