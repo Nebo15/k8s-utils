@@ -5,22 +5,30 @@ PROJECT_ROOT_DIR=$(git rev-parse --show-toplevel)
 HELM_APPLICATION_CHARTS_DIR="${PROJECT_ROOT_DIR}/rel/deployment/charts/applications"
 OS=`uname`
 
-log_step() {
+function prepend() {
+  while read line; do echo "${1}${line}"; done;
+}
+
+function log_step_append() {
+  echo "$1" | prepend "  " >&2
+}
+
+function log_step() {
   echo "- $1" >&2
 }
 
-banner() {
+function banner() {
   echo ""
   echo "  $1"
   echo ""
 }
 
-error() {
+function error() {
   echo "[E] $1" >&2
   exit 1
 }
 
-warning() {
+function warning() {
   echo "[W] $1" >&2
 }
 

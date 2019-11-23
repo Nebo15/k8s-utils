@@ -65,6 +65,22 @@ function commit_changes() {
     &> /dev/null
 }
 
+function log_changelog() {
+  APPLICATION=$1
+  FROM_VERSION=$2
+
+  MIX_APPLICATION=$(grep -o "image: .*" "${APPLICATIONS_DIR}/${APPLICATION}/values.yaml")
+  MIX_APPLICATION=${MIX_APPLICATION#"image: "}
+
+  set +eo pipefail
+  MIX_CHANGELOG=$(cd ${PROJECT_ROOT_DIR} && mix rel.changelog --from-version ${FROM_VERSION} --application ${MIX_APPLICATION} 2>&1 | sed '/^\s*$/d')
+  set -eo pipefail
+
+  log_step_append ""
+  log_step_append "${MIX_CHANGELOG}"
+  log_step_append ""
+}
+
 function promote() {
   local APPLICATION=$1
   local FROM=$2
@@ -81,6 +97,7 @@ function promote() {
         error "${VALUES_PATH} has changes in the git working tree, commit or stash all the changes before promoting"
       elif [[ "${DRY}" == "dry" ]]; then
         log_step "Going to promote ${APPLICATION} ${FROM_VERSION} -> ${TO_VERSION}"
+        log_changelog ${APPLICATION} ${FROM_VERSION}
       else
         replace_pattern_in_file 's#(imageTag:[ ]*"[^"]*"[ ]*)#imageTag: "'${TO_VERSION}'"#' "${VALUES_PATH}"
         commit_changes ${APPLICATION} ${FROM} ${FROM_VERSION} ${TO} ${TO_VERSION} ${VALUES_PATH}
@@ -118,10 +135,13 @@ function promote_all() {
 }
 
 if [[ $(git diff --name-only --cached | wc -l) -gt 0 ]]; then
-  error "You have staged changes, "
+  error "You have staged changes, please commit or stash them first"
 fi
 
+git fetch --tags --force &> /dev/null
+
 promote_all "${APPLICATIONS_DIR}" "${APPLICATION}" "${FROM}" "${TO}" "dry"
+# TODO: list changelog
 
 read -p "[?] Promote and commit all changes? (Yy/Nn)" -n 1 -r
 echo    # (optional) move to a new line
