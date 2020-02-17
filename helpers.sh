@@ -17,6 +17,14 @@ function log_step() {
   echo "- $1" >&2
 }
 
+function log_step_with_progress() {
+  echo -n "- $1" >&2
+}
+
+function log_progess_step() {
+  echo -n "." >&2
+}
+
 function banner() {
   echo ""
   echo "  $1"
