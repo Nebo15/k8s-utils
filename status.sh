@@ -4,16 +4,30 @@ K8S_UTILS_DIR="${BASH_SOURCE%/*}"
 source ${K8S_UTILS_DIR}/helpers.sh
 
 if [[ "${DOCKER_PASSWORD:-}" == "" ]]; then
-  log_step "Creating temporarely Docker Hub token to pull list of tags. Only OSX Keychain is currently supported"
-  log_step_append "For other OS you can set DOCKER_USERNAME and DOCKER_PASSWORD in your bash profile instead"
+  log_step "Creating temporarely Docker Hub token to pull list of container tags."
+
+  DOCKER_USERNAME_AND_PASSWORD=$(jq -r '.auths."https://index.docker.io/v1/".auth' ~/.docker/config.json)
   DOCKER_CREDENTIAL_HELPER=$(jq -r .credsStore ~/.docker/config.json)
-  DOCKER_CREDENTIALS=$(docker-credential-${DOCKER_CREDENTIAL_HELPER} list | \
-                         jq -r 'to_entries[].key' | \
-                         while read; do
-                           docker-credential-${DOCKER_CREDENTIAL_HELPER} get <<<"$REPLY";
-                         done)
-  DOCKER_USERNAME=$(echo "${DOCKER_CREDENTIALS}" | jq -r .Username)
-  DOCKER_PASSWORD=$(echo "${DOCKER_CREDENTIALS}" | jq -r .Secret)
+
+  if [[ "${DOCKER_USERNAME_AND_PASSWORD}" != "null" ]]; then
+    log_step_append "Resolved Docker Hub login and password from ~/.docker/config.json file"
+    DOCKER_USERNAME_AND_PASSWORD=$(echo "${DOCKER_USERNAME_AND_PASSWORD}" | base64 --decode)
+    DOCKER_USERNAME_AND_PASSWORD_ARRAY=(${DOCKER_USERNAME_AND_PASSWORD/:/ })
+    DOCKER_USERNAME=${DOCKER_USERNAME_AND_PASSWORD_ARRAY[0]}
+    DOCKER_PASSWORD=${DOCKER_USERNAME_AND_PASSWORD_ARRAY[1]}
+  elif [[ "${DOCKER_CREDENTIAL_HELPER}" != "null" ]]; then
+    log_step_append "Fetching Docker Hub password from credentials helper. Only OSX Keychain is currently supported."
+
+    DOCKER_CREDENTIALS=$(docker-credential-${DOCKER_CREDENTIAL_HELPER} list | \
+                           jq -r 'to_entries[].key' | \
+                           while read; do
+                             docker-credential-${DOCKER_CREDENTIAL_HELPER} get <<<"$REPLY";
+                           done)
+    DOCKER_USERNAME=$(echo "${DOCKER_CREDENTIALS}" | jq -r .Username)
+    DOCKER_PASSWORD=$(echo "${DOCKER_CREDENTIALS}" | jq -r .Secret)
+  else
+    error "Can not automatically resolve Docker Hub password, you set explicitly DOCKER_USERNAME and DOCKER_PASSWORD."
+  fi
 fi
 
 PROJECT_ROOT_DIR=$(git rev-parse --show-toplevel)
