@@ -68,7 +68,9 @@ if [[ "${POSTGRES_USER}" == "" ]]; then
   error "User name is not set, use -u option to set it or -h for list of available values"
 fi
 
-if [[ "${PORT}" == "" ]]; then
+if [[ "${PORT}" == "" && $(is_port_free "5433") == "true" ]]; then
+  PORT="5433"
+elif [[ "${PORT}" == ""  ]]; then
   PORT=$(get_free_random_port)
 else
   ensure_port_is_free ${PORT}

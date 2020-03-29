@@ -135,6 +135,16 @@ function ensure_port_is_free() {
   fi
 }
 
+function is_port_free() {
+  PORT=$1
+
+  if nc -z localhost ${PORT} < /dev/null; then
+    echo "false"
+  else
+    echo "true"
+  fi
+}
+
 function wait_for_ports_to_become_busy() {
   PORT=$1
 
