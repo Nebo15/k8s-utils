@@ -73,6 +73,6 @@ POSTGRES_CONNECTION_STRING=$(get_postgres_connection_url "${POSTGRES_USER}" "${P
 
 tunnel_postgres_connections "${PROXY_POD_NAMESPACE}" "${PROXY_POD_NAME}" ${PORT}
 
-echo " - Running: open postgres://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}"
-open "${POSTGRES_CONNECTION_STRING}"
+echo " - Running: open postgres://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}?create_favorite=true&connect_favorite=true&nickname=ktl/${INSTANCE_NAME}/${POSTGRES_DB}/${POSTGRES_USER}"
+open "${POSTGRES_CONNECTION_STRING}?create_favorite=true&connect_favorite=true&nickname=ktl/${INSTANCE_NAME}/${POSTGRES_DB}/${POSTGRES_USER}"
 fg
