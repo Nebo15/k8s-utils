@@ -56,4 +56,4 @@ fi
 log_step "Entering shell on remote Erlang/OTP node."
 kubectl exec ${POD_NAME} --namespace=${K8S_NAMESPACE} \
   -it \
-  -- /bin/sh -c 'bin/${APPLICATION_NAME} remote_console'
+  -- /bin/sh -c 'bin/${APPLICATION_NAME} remote'
