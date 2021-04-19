@@ -8,55 +8,59 @@ command -v kubectl >/dev/null 2>&1 || { echo >&2 "kubectl is not installed. Abor
 CURRENT_DIR="$( cd "$( dirname $( readlink "${BASH_SOURCE[0]}") )" && pwd )"
 
 if [[ "$1" == "shell" ]]; then
-  OPT=${@#shell}
-  ${CURRENT_DIR}/shell.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/shell.sh
 elif [[ "$1" == "erl:shell" ]]; then
-  OPT=${@#erl:shell}
-  ${CURRENT_DIR}/erl-shell.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/erl-shell.sh
 elif [[ "$1" == "iex:shell" ]]; then
-  OPT=${@#iex:shell}
-  ${CURRENT_DIR}/iex-shell.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/iex-shell.sh
 elif [[ "$1" == "iex:observer" ]]; then
-  OPT=${@#iex:observer}
-  ${CURRENT_DIR}/iex-observer.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/iex-observer.sh
 elif [[ "$1" == "iex:remsh" ]]; then
-  OPT=${@#iex:remsh}
-  ${CURRENT_DIR}/iex-remsh.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/iex-remsh.sh
 elif [[ "$1" == "pg:psql" ]]; then
-  OPT=${@#pg:psql}
-  ${CURRENT_DIR}/pg-psql.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/pg-psql.sh
 elif [[ "$1" == "pg:open" ]]; then
-  OPT=${@#pg:open}
-  ${CURRENT_DIR}/pg-open.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/pg-open.sh
 elif [[ "$1" == "pg:proxy" ]]; then
-  OPT=${@#pg:proxy}
-  ${CURRENT_DIR}/pg-proxy.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/pg-proxy.sh
 elif [[ "$1" == "pg:ps" ]]; then
-  OPT=${@#pg:ps}
-  ${CURRENT_DIR}/pg-ps.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/pg-ps.sh
 elif [[ "$1" == "pg:kill" ]]; then
-  OPT=${@#pg:kill}
-  ${CURRENT_DIR}/pg-kill.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/pg-kill.sh
 elif [[ "$1" == "pg:outliers" ]]; then
-  OPT=${@#pg:outliers}
-  ${CURRENT_DIR}/pg-outliers.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/pg-outliers.sh
 elif [[ "$1" == "pg:diagnose" ]]; then
-  OPT=${@#pg:diagnose}
-  ${CURRENT_DIR}/pg-diagnose.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/pg-diagnose.sh
 elif [[ "$1" == "pg:dump" ]]; then
-  OPT=${@#pg:dump}
-  ${CURRENT_DIR}/pg-dump.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/pg-dump.sh
 elif [[ "$1" == "pg:restore" ]]; then
-  OPT=${@#pg:restore}
-  ${CURRENT_DIR}/pg-restore.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/pg-restore.sh
+elif [[ "$1" == "pg:copy" ]]; then
+  OPTIND=2
+  source ${CURRENT_DIR}/pg-copy.sh
 elif [[ "$1" == "status" ]]; then
-  OPT=${@#status}
-  ${CURRENT_DIR}/status.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/status.sh
 elif [[ "$1" == "promote" ]]; then
-  OPT=${@#promote}
-  ${CURRENT_DIR}/promote.sh ${OPT}
+  OPTIND=2
+  source ${CURRENT_DIR}/promote.sh
 elif [[ "$1" == "help" ]]; then
-  ${CURRENT_DIR}/help.sh
+  OPTIND=2
+  source ${CURRENT_DIR}/help.sh
 elif [[ "$1" == "apply" ]]; then
   # We override default behaviour to store update history
   kubectl $@ --record=true

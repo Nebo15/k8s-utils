@@ -4,7 +4,7 @@ source ${K8S_UTILS_DIR}/helpers.sh
 
 function show_help {
   echo "
-  ktl pg:dump -istaging -utalkinto -dtalkinto [-nkube-system -h -o]
+  ktl pg:dump -istaging -utalkinto -dtalkinto [-nkube-system -h -t -f -e]
 
   Dumps PostgreSQL database to local directory in binary format.
 
