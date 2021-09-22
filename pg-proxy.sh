@@ -30,6 +30,10 @@ PORT=""
 POSTGRES_DB="postgres"
 PROXY_POD_NAMESPACE="kube-system"
 
+INSTANCE_NAME=${KTL_PG_DEFAULT_INSTANCE_NAME}
+POSTGRES_USER=${KTL_PG_DEFAULT_USERNAME}
+POSTGRES_DB=${KTL_PG_DEFAULT_DATABASE}
+
 # Read configuration from CLI
 while getopts "hn:i:u:p:d:" opt; do
   case "$opt" in

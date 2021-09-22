@@ -36,6 +36,10 @@ FILE=""
 COMMAND=""
 VARIABLES=()
 
+INSTANCE_NAME=${KTL_PG_DEFAULT_INSTANCE_NAME}
+POSTGRES_USER=${KTL_PG_DEFAULT_USERNAME}
+POSTGRES_DB=${KTL_PG_DEFAULT_DATABASE}
+
 # Read configuration from CLI
 while getopts "hn:i:u:p:d:f:v:" opt; do
   case "$opt" in
