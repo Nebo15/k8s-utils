@@ -138,6 +138,7 @@ if [[ $(git diff --name-only --cached | wc -l) -gt 0 ]]; then
   error "You have staged changes, please commit or stash them first"
 fi
 
+git pull origin $(git branch --show-current) &> /dev/null
 git fetch --tags --force &> /dev/null
 
 promote_all "${APPLICATIONS_DIR}" "${APPLICATION}" "${FROM}" "${TO}" "dry"
