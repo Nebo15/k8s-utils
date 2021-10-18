@@ -36,9 +36,9 @@ FILE=""
 COMMAND=""
 VARIABLES=()
 
-INSTANCE_NAME=${KTL_PG_DEFAULT_INSTANCE_NAME}
-POSTGRES_USER=${KTL_PG_DEFAULT_USERNAME}
-POSTGRES_DB=${KTL_PG_DEFAULT_DATABASE}
+INSTANCE_NAME=${KTL_PG_DEFAULT_INSTANCE_NAME:-}
+POSTGRES_USER=${KTL_PG_DEFAULT_USERNAME:-}
+POSTGRES_DB=${KTL_PG_DEFAULT_DATABASE:-}
 
 # Read configuration from CLI
 while getopts "hn:i:u:p:d:f:v:" opt; do
@@ -92,13 +92,20 @@ POSTGRES_CONNECTION_STRING=$(get_postgres_connection_url "${POSTGRES_USER}" "${P
 
 tunnel_postgres_connections "${PROXY_POD_NAMESPACE}" "${PROXY_POD_NAME}" ${PORT}
 
+if [ ${#VARIABLES[@]} -eq 0 ]; then 
+    PSQL_VARIABLES=''
+else 
+    log_step "Assigning provided variables"
+    PSQL_VARIABLES=${VARIABLES[@]}
+fi
+
 if [[ "${COMMAND}" != "" ]]; then
   log_step "Executing SQL query '${COMMAND}' on postgres://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}"
-  psql "${POSTGRES_CONNECTION_STRING}" --echo-queries --command "${COMMAND};" ${VARIABLES[@]}
+  psql "${POSTGRES_CONNECTION_STRING}" --echo-queries --command "${COMMAND};" ${PSQL_VARIABLES}
 elif [[ "${FILE}" != "" ]]; then
   log_step "Executing SQL queries from file '${FILE}' on postgres://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}"
-  psql "${POSTGRES_CONNECTION_STRING}" --echo-queries --file=${FILE} ${VARIABLES[@]}
+  psql "${POSTGRES_CONNECTION_STRING}" --echo-queries --file=${FILE} ${PSQL_VARIABLES}
 else
   log_step "Running: psql postgres://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}"
-  psql "${POSTGRES_CONNECTION_STRING}" ${VARIABLES[@]}
+  psql "${POSTGRES_CONNECTION_STRING}" ${PSQL_VARIABLES}
 fi
