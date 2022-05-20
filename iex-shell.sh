@@ -54,6 +54,7 @@ if [ ! $K8S_NAMESPACE ]; then
 fi
 
 log_step "Entering shell on remote Erlang/OTP node."
+log_step "Pod ${POD_NAME} in namespace ${K8S_NAMESPACE}"
 kubectl exec ${POD_NAME} --namespace=${K8S_NAMESPACE} \
   -it \
   -- /bin/sh -c 'bin/${APPLICATION_NAME} remote'
