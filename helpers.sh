@@ -2,7 +2,6 @@
 set -meuo pipefail
 
 PROJECT_ROOT_DIR=$(git rev-parse --show-toplevel)
-HELM_APPLICATION_CHARTS_DIR="${PROJECT_ROOT_DIR}/rel/deployment/charts/applications"
 OS=`uname`
 
 function prepend() {

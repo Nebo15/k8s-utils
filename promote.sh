@@ -6,9 +6,7 @@ function show_help {
   echo "
   ktl promote [-f=staging -t=production -a=talkinto-domain]
 
-  Promotes image tag in helm value files taking it from other environment file.
-
-  Warning! This command does not change other Helm configuration which can change from version to version.
+  Promotes image tag in terraform's versions.auto.tfvars value files taking it from other environment file.
 
   Options:
     -fFROM              Environment name from which the version would be taken. Default: staging.
@@ -35,19 +33,15 @@ while getopts "hf:t:a:" opt; do
   esac
 done
 
-APPLICATIONS_DIR="${PROJECT_ROOT_DIR}/rel/deployment/charts/applications"
+TERRAFORM_DIR="${PROJECT_ROOT_DIR}/rel/deployment/terraform/environments"
 
-function values_path() {
-  if [[ "$2" == "production" ]]; then
-    echo "${APPLICATIONS_DIR}/$1/values.yaml"
-  else
-    echo "${APPLICATIONS_DIR}/$1/values.$2.yaml"
-  fi
+function versions_path() {
+  echo "${TERRAFORM_DIR}/$1/versions.auto.tfvars"
 }
 
-function get_helm_version() {
-  VALUES_PATH=$(values_path $1 $2)
-  [[ -e "${VALUES_PATH}" ]] && cat "${VALUES_PATH}" | grep "imageTag" | awk '{print $NF;}' | sed 's/"//g' || echo ""
+function get_version() {
+  VERSIONS_PATH=$(versions_path $2)
+  [[ -e "${VERSIONS_PATH}" ]] && cat "${VERSIONS_PATH}" | grep "$1_image_tag" | awk '{print $NF;}' | sed 's/"//g' || echo ""
 }
 
 function commit_changes() {
@@ -56,9 +50,9 @@ function commit_changes() {
   local FROM_VERSION=$3
   local TO=$4
   local TO_VERSION=$5
-  local VALUES_PATH=$6
+  local VERSIONS_PATH=$6
 
-  git add ${VALUES_PATH}
+  git add ${VERSIONS_PATH}
   git commit \
     -m "Promote ${TO}/${APPLICATION} from ${FROM_VERSION} to ${TO_VERSION} [ci skip]" \
     -m "Promoted from ${FROM} to ${TO} environment." \
@@ -69,11 +63,8 @@ function log_changelog() {
   APPLICATION=$1
   FROM_VERSION=$2
 
-  MIX_APPLICATION=$(grep -o "image: .*" "${APPLICATIONS_DIR}/${APPLICATION}/values.yaml")
-  MIX_APPLICATION=${MIX_APPLICATION#"image: "}
-
   set +eo pipefail
-  MIX_CHANGELOG=$(cd ${PROJECT_ROOT_DIR} && mix rel.changelog --from-version ${FROM_VERSION} --application ${MIX_APPLICATION} 2>&1 | sed '/^\s*$/d')
+  MIX_CHANGELOG=$(cd ${PROJECT_ROOT_DIR} && mix rel.changelog --from-version ${FROM_VERSION} --application ${APPLICATION} 2>&1 | sed '/^\s*$/d')
   set -eo pipefail
 
   log_step_append ""
@@ -86,21 +77,23 @@ function promote() {
   local FROM=$2
   local TO=$3
   local DRY=$4
-  local FROM_VERSION=$(get_helm_version $APPLICATION $TO)
-  local TO_VERSION=$(get_helm_version $APPLICATION $FROM)
-  local VALUES_PATH=$(values_path $APPLICATION $TO)
+  local FROM_VERSION=$(get_version $APPLICATION $TO)
+  local TO_VERSION=$(get_version $APPLICATION $FROM)
+  local VERSIONS_PATH=$(versions_path $TO)
+
+  echo "APPLICATION: ${APPLICATION}"
 
   if [[ "${FROM_VERSION}" != "" && "${TO_VERSION}" != "" ]]; then
     if [[ "${FROM_VERSION}" != "${TO_VERSION}" ]]; then
-      GIT_CHANGES=$(git status --porcelain ${VALUES_PATH})
+      GIT_CHANGES=$(git status --porcelain ${VERSIONS_PATH})
       if [[ ${GIT_CHANGES} ]]; then
-        error "${VALUES_PATH} has changes in the git working tree, commit or stash all the changes before promoting"
+        error "${VERSIONS_PATH} has changes in the git working tree, commit or stash all the changes before promoting"
       elif [[ "${DRY}" == "dry" ]]; then
         log_step "Going to promote ${APPLICATION} ${FROM_VERSION} -> ${TO_VERSION}"
         log_changelog ${APPLICATION} ${FROM_VERSION}
       else
-        replace_pattern_in_file 's#(imageTag:[ ]*"[^"]*"[ ]*)#imageTag: "'${TO_VERSION}'"#' "${VALUES_PATH}"
-        commit_changes ${APPLICATION} ${FROM} ${FROM_VERSION} ${TO} ${TO_VERSION} ${VALUES_PATH}
+        replace_pattern_in_file 's#('${APPLICATION}'_image_tag[ ]*=[ ]*"[^"]*"[ ]*)#'${APPLICATION}'_image_tag = "'${TO_VERSION}'"#' "${VERSIONS_PATH}"
+        commit_changes ${APPLICATION} ${FROM} ${FROM_VERSION} ${TO} ${TO_VERSION} ${VERSIONS_PATH}
         log_step "Promoted ${APPLICATION} ${FROM_VERSION} -> ${TO_VERSION}"
       fi
     else
@@ -113,20 +106,27 @@ function promote() {
   fi;
 }
 
+function list_all_applications() {
+  local VERSIONS_PATH=$(versions_path $1)
+  [[ -e "${VERSIONS_PATH}" ]] && cat "${VERSIONS_PATH}" | grep "image_tag" | awk '{print $1;}' | sed 's/_image_tag//g'
+}
+
 function promote_all() {
-  local APPLICATIONS_DIR=$1
+  local TERRAFORM_DIR=$1
   local APPLICATION=$2
   local FROM=$3
   local TO=$4
   local DRY=${5:-"clean"}
 
+  APPLICATION=${APPLICATION//-/_}
+
   if [[ "${APPLICATION}" == "" ]]; then
-    for a in ${APPLICATIONS_DIR}/*/ ; do
+    for a in $(list_all_applications $FROM) ; do
       APPLICATION=$(basename "$a")
       promote $APPLICATION $FROM $TO $DRY
     done
   else
-    if [[ ! -d "${APPLICATIONS_DIR}/${APPLICATION}" ]]; then
+    if [[ $(get_version $APPLICATION $FROM) == "" ]]; then
       error "Application ${APPLICATION} does not exist"
     fi;
 
@@ -141,15 +141,14 @@ fi
 git pull origin $(git branch --show-current) &> /dev/null
 git fetch --tags --force &> /dev/null
 
-promote_all "${APPLICATIONS_DIR}" "${APPLICATION}" "${FROM}" "${TO}" "dry"
-# TODO: list changelog
+promote_all "${TERRAFORM_DIR}" "${APPLICATION}" "${FROM}" "${TO}" "dry"
 
 read -p "[?] Promote and commit all changes? (Yy/Nn)" -n 1 -r
 echo    # (optional) move to a new line
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
   banner "Promoting and commiting changes"
-  promote_all "${APPLICATIONS_DIR}" "${APPLICATION}" "${FROM}" "${TO}"
+  promote_all "${TERRAFORM_DIR}" "${APPLICATION}" "${FROM}" "${TO}"
 else
   log_step "Cancelled, got ${REPLY}"
 fi
