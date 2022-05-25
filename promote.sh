@@ -81,8 +81,6 @@ function promote() {
   local TO_VERSION=$(get_version $APPLICATION $FROM)
   local VERSIONS_PATH=$(versions_path $TO)
 
-  echo "APPLICATION: ${APPLICATION}"
-
   if [[ "${FROM_VERSION}" != "" && "${TO_VERSION}" != "" ]]; then
     if [[ "${FROM_VERSION}" != "${TO_VERSION}" ]]; then
       GIT_CHANGES=$(git status --porcelain ${VERSIONS_PATH})
