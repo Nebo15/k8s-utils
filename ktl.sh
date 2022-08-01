@@ -4,6 +4,7 @@ set -e
 # Check dependencies
 command -v jq >/dev/null 2>&1 || { echo >&2 "jq is not installed. Aborting."; exit 1; }
 command -v kubectl >/dev/null 2>&1 || { echo >&2 "kubectl is not installed. Aborting."; exit 1; }
+command -v gke-gcloud-auth-plugin --version >/dev/null 2>&1 || { echo >&2 "gke-gcloud-auth-plugin is not installed. Use 'gcloud components install gke-gcloud-auth-plugin'. Aborting."; exit 1; }
 
 CURRENT_DIR="$( cd "$( dirname $( readlink "${BASH_SOURCE[0]}") )" && pwd )"
 
