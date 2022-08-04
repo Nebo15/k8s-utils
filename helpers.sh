@@ -181,7 +181,7 @@ function get_postgres_user_password() {
       -l "service=google_cloud_sql,instance_name=${SQL_INSTANCE_NAME}" \
       -o json \
       | jq -r '.items[] | select(.data.username == "'${POSTGRES_USER_BASE64}'") | .data.password' \
-      | base64 --decode
+      | base64 -d
   )
 
   if [[ "${POSTGRES_PASSWORD}" == "" ]]; then
@@ -255,7 +255,7 @@ function get_erlang_cookie() {
 
   kubectl get secret ${ERLANG_COOKIE_SECRET_NAME} \
     --namespace=${NAMESPACE} \
-    -o jsonpath='{$.data.'${ERLANG_COOKIE_SECRET_KEY_NAME}'}' | base64 --decode
+    -o jsonpath='{$.data.'${ERLANG_COOKIE_SECRET_KEY_NAME}'}' | base64 -d
 }
 
 function get_epmd_names() {
